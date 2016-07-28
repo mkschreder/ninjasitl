@@ -39,11 +39,11 @@ public:
 	~Application();
 	
 	void CreateStartScene();
-	void CreateBox(const btVector3 &TPosition, const vector3df &TScale, btScalar TMass, const char *texture = "rust0.jpg");
+	btRigidBody * CreateBox(const btVector3 &TPosition, const vector3df &TScale, btScalar TMass, const char *texture = "rust0.jpg");
 	void CreateSphere(const btVector3 &TPosition, btScalar TRadius, btScalar TMass);
-	void UpdatePhysics(u32 TDeltaTime);
+	void updatePhysics(float dt);
 	void UpdateRender(btRigidBody *TObject);
-	void updateNetwork(); 
+	void updateNetwork(double dt); 
 	void ClearObjects();
 	int GetRandInt(int TMax) { return rand() % TMax; }
 	void run();
@@ -68,7 +68,10 @@ public:
 	Copter *activeQuad; 
 	list<btRigidBody *> Objects;
 	int16_t mRCThrottle, mRCYaw, mRCPitch, mRCRoll; 
+	float _spin; 
+	float _angle; 
 	SocketAPM sock; 
-	u32 TimeStamp, DeltaTime; 
+	u32 TimeStamp; 
+	bool _key_down[KEY_KEY_CODES_COUNT]; 
 };
 

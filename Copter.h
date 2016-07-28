@@ -39,26 +39,38 @@ class Copter {
 public:
 	Copter(Application *app);
 
-	virtual void update(uint32_t dt);
+	virtual void update(float dt);
 	virtual void render(irr::video::IVideoDriver *drv);
 	
-	void setServo(unsigned int id, int16_t value); 
+	void setOutputThrust(unsigned int id, float thrust); 
 
 	virtual irr::scene::ISceneNode *getSceneNode(){return mNode;}
-	virtual void attachCamera(irr::scene::ICameraSceneNode *cam){
-		mCamera = cam;
-		mNode->addChild(mCamera); 
-	}
+	virtual void attachCamera(irr::scene::ICameraSceneNode *cam); 
 
 	glm::quat getRotation(); 
 	glm::vec3 getVelocity(); 
 	glm::vec3 getPosition(); 
 	glm::vec3 getAccel(); 
 	glm::vec3 getGyro(); 
+	
+	void setPosition(const glm::vec3 &pos); 
+	void setRotation(const glm::quat &rot); 
+	void setAngularVelocity(const glm::vec3 &v); 
+	void setLinearVelocity(const glm::vec3 &v); 
 private:
-	int16_t _servo[8]; 
+	typedef enum {
+		MOTOR_CW = 0, 
+		MOTOR_CCW = 1
+	} motor_dir_t; 
+	struct motor {
+		glm::vec3 pos; 
+		motor_dir_t dir; 
+		float thrust; 
+		glm::vec3 torque; 
+	} _motors[8]; 
 	btRigidBody *mBody;
 	Application *mApp; 
+
 	irr::scene::ISceneNode *mNode;
 	irr::scene::ICameraSceneNode *mCamera; 
 };
