@@ -75,7 +75,7 @@ Copter::Copter(Application *app){
 	// Store a pointer to the irrlicht node so we can update it later
 	mBody->setUserPointer((void *)(Node));
 
-	mBody->setDamping(0.5, 0.1); 
+	mBody->setDamping(0.5, 0.8); 
 
 	// Add it to the world
 	mApp->World->addRigidBody(mBody);
@@ -154,11 +154,11 @@ void Copter::render(irr::video::IVideoDriver *drv){
 		
 		// draw direction of thrust
 		drv->draw3DLine(vector3df(p.x, p.y, p.z),
-			vector3df(p.x + f.x, p.y + f.y, p.z + f.z), SColor(255, 255, 0, 0));
+			vector3df(p.x + f.x, p.y + f.y, p.z + f.z), SColor(255, 255, 255, 0));
 
 		// draw direction of torque 
 		drv->draw3DLine(vector3df(p.x, p.y, p.z),
-			vector3df(p.x + a.x, p.y + a.y, p.z + a.z), SColor(0, 255, 0, 0));
+			vector3df(p.x + a.x, p.y + a.y, p.z + a.z), SColor(255, 255, 0, 0));
 
 	}	
 }
@@ -198,11 +198,15 @@ void Copter::setLinearVelocity(const glm::vec3 &v){
 		_velocity = v; 
 }
 
+void Copter::setLinearAcceleration(const glm::vec3 &v){
+	//_accel = v; 
+}
+
 glm::vec3 Copter::getAccel(){
 	glm::quat rot = getRotation(); 
 	// accelerometer measures both accel in ef and force opposite to gravity
 	//return glm::inverse(rot) * (_accel + glm::vec3(0, 9.82, 0));
-	return glm::inverse(rot) * (glm::vec3(0, 9.82, 0));
+	return glm::inverse(rot) * (_accel + glm::vec3(0, 9.82, 0));
 }
 
 glm::vec3 Copter::getGyro(){
@@ -250,7 +254,7 @@ void Copter::update(float dt){
 
 		// update accel
 		glm::vec3 vel = getVelocity(); 
-		_accel = (vel - _velocity) / 0.018f; 
+		_accel = (vel - _velocity) / dt; //0.018f; 
 		_velocity = vel; 
 	} else {
 		// update position based on velocity

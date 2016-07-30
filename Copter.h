@@ -56,6 +56,7 @@ public:
 	void setRotation(const glm::quat &rot); 
 	void setAngularVelocity(const glm::vec3 &v); 
 	void setLinearVelocity(const glm::vec3 &v); 
+	void setLinearAcceleration(const glm::vec3 &v); 
 
 	void setSimulationOn(bool on); 
 private:
