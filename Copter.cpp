@@ -69,17 +69,17 @@ Copter::Copter(Application *app){
 	info.m_friction = 1.5f;
 
 	mBody = new btRigidBody(info);
-	mBody->setActivationState(DISABLE_DEACTIVATION);
+	//mBody->setActivationState(DISABLE_DEACTIVATION);
 	//mBody->forceActivationState(DISABLE_SIMULATION);
 
 	// Store a pointer to the irrlicht node so we can update it later
 	mBody->setUserPointer((void *)(Node));
 
+	mBody->setDamping(0.5, 0.1); 
+
 	// Add it to the world
 	mApp->World->addRigidBody(mBody);
 	mApp->Objects.push_back(mBody);
-
-	mCamera = 0; 
 
 	_motors[1-1] = (struct motor){ glm::vec3( 0.5, 0.05, 0.0), MOTOR_CCW };
 	_motors[2-1] = (struct motor){ glm::vec3(-0.5, 0.05, 0.0), MOTOR_CCW };
@@ -93,9 +93,16 @@ Copter::Copter(Application *app){
 	//FlightController::setSensorProvider(new Copter(mApp->World, RigidBody));
 }
 
-void Copter::attachCamera(irr::scene::ICameraSceneNode *cam){
-	mCamera = cam;
-	//mNode->addChild(mCamera); 
+void Copter::setSimulationOn(bool on){
+	mApp->World->removeRigidBody(mBody);
+	if(on){
+		mBody->setActivationState(DISABLE_DEACTIVATION);
+		mBody->setActivationState(ACTIVE_TAG);
+	} else {	
+		mBody->setActivationState(DISABLE_SIMULATION);
+	}
+	mApp->World->addRigidBody(mBody);
+	_simulate = on; 
 }
 
 void Copter::setOutputThrust(unsigned int id, float value){
@@ -103,17 +110,12 @@ void Copter::setOutputThrust(unsigned int id, float value){
 	if(value < 0) value = 0; if(value > 1.0) value = 1.0; 
 	_motors[id].thrust = value; 
 	if(_motors[id].dir == MOTOR_CW)
-		_motors[id].torque = glm::cross(glm::normalize(_motors[id].pos), glm::vec3(0, 1.0f, 0)) * value; 
+		_motors[id].torque = glm::cross(glm::normalize(_motors[id].pos), glm::vec3(0, 1.0f, 0)); 
 	else if(_motors[id].dir == MOTOR_CCW)
-		_motors[id].torque = glm::cross(glm::normalize(_motors[id].pos), glm::vec3(0, -1.0f, 0)) * value; 
+		_motors[id].torque = glm::cross(glm::normalize(_motors[id].pos), glm::vec3(0, -1.0f, 0)); 
 }
 
 void Copter::render(irr::video::IVideoDriver *drv){
-	btTransform trans; 
-	mBody->getMotionState()->getWorldTransform(trans); 
-	btQuaternion qrot = trans.getRotation(); 
-	btMatrix3x3 mat = trans.getBasis(); 
-	btVector3 p = trans.getOrigin(); 
 	glm::quat rot = getRotation();
 	glm::vec3 pos = getPosition() + rot * glm::vec3(0, 0.2, 0);
 	glm::vec3 acc = rot * getAccel();  
@@ -148,7 +150,7 @@ void Copter::render(irr::video::IVideoDriver *drv){
 		float th = _motors[c].thrust; 
 		glm::vec3 p = rot * _motors[c].pos + pos; 
 		glm::vec3 f = rot * glm::vec3(0, 1.0, 0) * th; 
-		glm::vec3 a = rot * _motors[c].torque; 
+		glm::vec3 a = rot * _motors[c].torque * th * 0.2f; 
 		
 		// draw direction of thrust
 		drv->draw3DLine(vector3df(p.x, p.y, p.z),
@@ -175,6 +177,7 @@ void Copter::setPosition(const glm::vec3 &pos){
 	btTransform t = mBody->getCenterOfMassTransform();
 	t.setOrigin(btVector3(pos.x, pos.y, pos.z)); 
 	mBody->setCenterOfMassTransform(t); 
+	mNode->setPosition(vector3df(pos.x, pos.y, pos.z)); 
 }
 
 void Copter::setRotation(const glm::quat &rot){
@@ -189,19 +192,17 @@ void Copter::setAngularVelocity(const glm::vec3 &v){
 }
 
 void Copter::setLinearVelocity(const glm::vec3 &v){
-	mBody->setLinearVelocity(btVector3(v.x, v.y, v.z)); 
+	if(_simulate)
+		mBody->setLinearVelocity(btVector3(v.x, v.y, v.z)); 
+	else
+		_velocity = v; 
 }
 
 glm::vec3 Copter::getAccel(){
 	glm::quat rot = getRotation(); 
-	return glm::inverse(rot) * glm::vec3(0, 9.82, 0); 
-	//return rot * glm::vec3(0, -9.82, 0); 
-	/*btTransform t; 
-	mBody->getMotionState()->getWorldTransform(t); 
-	btMatrix3x3 trans = t.getBasis(); 
-	btVector3 acc = (trans * btVector3(0, 0, 9.82)); 
-
-	return glm::vec3(acc[0], acc[1], acc[2]); */
+	// accelerometer measures both accel in ef and force opposite to gravity
+	//return glm::inverse(rot) * (_accel + glm::vec3(0, 9.82, 0));
+	return glm::inverse(rot) * (glm::vec3(0, 9.82, 0));
 }
 
 glm::vec3 Copter::getGyro(){
@@ -226,88 +227,34 @@ glm::vec3 Copter::getVelocity(){
 	return glm::vec3(v[0], v[1], v[2]); 
 }
 
-/*
-bool Copter::RaycastWorld(const btVector3 &Start, btVector3 &End, btVector3 &Normal) {
-	btCollisionWorld::ClosestRayResultCallback RayCallback(Start, End);
-	//RayCallback.m_collisionFilterMask = FILTER_CAMERA;
-
-	// Perform raycast
-	World->rayTest(Start, End, RayCallback);
-	if(RayCallback.hasHit()) {
-		End = RayCallback.m_hitPointWorld;
-		Normal = RayCallback.m_hitNormalWorld;
-		return true;
-	}
-	return false;
-}
-void Copter::update(float dt){
-	if(!dt) dt = 1; // at least one millisecond
-
-	// measure distance straight down 
-	btVector3 end, normal; 
-	btVector3 pos = mBody->getCenterOfMassPosition();
-	const btQuaternion& quat = mBody->getOrientation(); //mBody->getWorldTransform().getRotation(); 
-	btVector3 down = btTransform(quat) * btVector3(0, -1, 0); 
-	//btVector3 gravity = World->getGravity();
-	btVector3 velocity = mBody->getLinearVelocity();
-	btVector3 tmp;
-	
-	if(RaycastWorld(down, end, normal)){
-		mDistance = (end-pos).length() * 1000;
-	} else {
-		mDistance = -1;
-	}
-
-	mAltitude = pos[1] * 100;
-	//glm::vec3 euler = glm::eulerAngles()); 
-	
-	//printf("EULER: %f %f %f\n", glm::degrees(euler.x), 
-	//	glm::degrees(euler.y), glm::degrees(euler.z)); 
-	
-	btTransform t; 
-	mBody->getMotionState()->getWorldTransform(t); 
-	btMatrix3x3 trans = t.getBasis(); 
-	btVector3 acc = (trans * btVector3(0, 0, 9.82)); 
-	
-	mAcc = glm::vec3(acc[0], acc[1], acc[2]);
-	mOldVelocity = velocity;
-
-	tmp = mBody->getAngularVelocity(); 
-	mGyro = glm::vec3(tmp[0], tmp[1], tmp[2]);
-
-	//tmp = (trans * btVector3(0, 0, 1)); 
-	//mCompass = glm::vec3(1, 0, 0); //glm::vec3(tmp[0] * 32768, tmp[1] * 32768, tmp[2] * 32768); 
-}
-*/
-
 void Copter::update(float dt){
 	glm::quat rot = getRotation(); 
 	glm::vec3 pos = getPosition(); 
-	// + frame
-	printf("thrust: "); 
-	for(int c = 0; c < 4; c++){
-		float th = _motors[c].thrust * 10.0f; 
-		printf("%f ", th); 
-		glm::vec3 p = rot * _motors[c].pos;
-		glm::vec3 f = rot * glm::vec3(0, 1.0, 0) * th; 
-		glm::vec3 a = rot * _motors[c].torque; 
-		mBody->applyForce(btVector3(f.x, f.y, f.z), btVector3(p.x, p.y, p.z)); 
-		mBody->applyForce(btVector3(a.x, a.y, a.z), btVector3(p.x, p.y, p.z)); 
-	}
-	
-	printf("\n"); 
 
-	if(mCamera){
-		vector3df e;
-		const btQuaternion& TQuat = mBody->getOrientation();
-		btVector3 pos = mBody->getCenterOfMassPosition();
-		quaternion q(TQuat.getX(), TQuat.getY(), TQuat.getZ(), TQuat.getW());
-		btVector3 look = btTransform(TQuat) * btVector3(0, 0, 1) + pos; 
-		q.toEuler(e);
-		e *= RADTODEG;
-		//printf("EULER: %f %f %f\n", e.X, e.Y, e.Z); 
-		mCamera->setTarget(vector3df(look[0], look[1], look[2]));
-		mCamera->setPosition(vector3df(pos[0], pos[1], pos[2])); 
-		mCamera->setRotation(vector3df(e.X, e.Y, e.Z)); 
+	//btVector3 tot = mBody->getTotalForce(); 
+	//printf("tot: %f %f %f\n", tot[0], tot[1], tot[2]); 
+	// + frame
+
+	//printf("thrust: "); 
+	if(_simulate){
+		for(int c = 0; c < 4; c++){
+			float th = _motors[c].thrust * 10.0f; 
+			//printf("%f ", th); 
+			glm::vec3 p = rot * _motors[c].pos;
+			glm::vec3 f = rot * glm::vec3(0, 1.0, 0) * th; 
+			glm::vec3 a = rot * _motors[c].torque * th * 0.2f; 
+			
+			mBody->applyForce(btVector3(f.x, f.y, f.z), btVector3(p.x, p.y, p.z)); 
+			mBody->applyForce(btVector3(a.x, a.y, a.z), btVector3(p.x, p.y, p.z)); 
+		}
+
+		// update accel
+		glm::vec3 vel = getVelocity(); 
+		_accel = (vel - _velocity) / 0.018f; 
+		_velocity = vel; 
+	} else {
+		// update position based on velocity
+		//setPosition(getPosition() + _velocity * dt); 
 	}
+	//printf("\n"); 
 }

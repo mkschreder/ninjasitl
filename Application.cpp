@@ -22,11 +22,12 @@
 
 static int paused = 0; 
 Application::Application():sock(true){
-	//int16_t mRCYaw = mRCPitch = mRCRoll = 0; 
-	mRCThrottle = 1000; 
-	mRCPitch = 1500; 
-	mRCYaw = 1500; 
-	mRCRoll = 1500; 
+	mRCThrottle = 0; 
+	mRCPitch = 0.5; 
+	mRCYaw = 0.5; 
+	mRCRoll = 0.5; 
+	
+	memset(_key_down, 0, sizeof(_key_down)); 
 
 	_spin = 0; 
 	_angle = 0; 
@@ -63,10 +64,10 @@ Application::Application():sock(true){
 	World->setGravity(btVector3(0, -9.82, 0)); 
 
 	// Add camera
-	//ICameraSceneNode *Camera = irrScene->addCameraSceneNodeFPS(0, 100, 0.01);
-	ICameraSceneNode *Camera = irrScene->addCameraSceneNode();
-	Camera->setPosition(vector3df(0, 0, 0));
-	Camera->setRotation(vector3df(45, -30, 0)); 
+	//mCamera = irrScene->addCameraSceneNodeFPS(0, 100, 0.01);
+	mCamera = irrScene->addCameraSceneNode();
+	mCamera->setPosition(vector3df(0, 0, 0));
+	mCamera->setRotation(vector3df(0, 0, 0)); 
 	//Camera->setUpVector(vector3df(0, 0, 1.0)); 
 	//Camera->setTarget(vector3df(1, 0, 0));
 	
@@ -83,8 +84,6 @@ Application::Application():sock(true){
 	TimeStamp = irrTimer->getTime();
 
 	activeQuad = new Copter(this);
-	
-	activeQuad->attachCamera(Camera); 
 
 	sock.bind("127.0.0.1", 9002); 
 }
@@ -100,23 +99,92 @@ Application::~Application(){
 	irrDevice->drop();
 }
 
-void Application::run(){
-	double dt = (irrTimer->getTime() - TimeStamp) * 0.001;
-	TimeStamp = irrTimer->getTime();
+bool Application::clipRay(const glm::vec3 &_start, const glm::vec3 &_end, glm::vec3 *end, glm::vec3 *norm) {
+	btVector3 s(_start.x, _start.y, _start.z); 
+	btVector3 e(_end.x, _end.y, _end.z); 
 
-	static float foo = 0; 
-	if(_key_down[KEY_KEY_W]){
-		foo += 10 * dt * 4; 	
-	} else {
-		foo *= 1.0 - (dt * 4); 
+	btCollisionWorld::ClosestRayResultCallback RayCallback(s, e);
+	//RayCallback.m_collisionFilterMask = FILTER_CAMERA;
+
+	// Perform raycast
+	World->rayTest(s, e, RayCallback);
+	if(RayCallback.hasHit()) {
+		e = RayCallback.m_hitPointWorld;
+		btVector3 n = RayCallback.m_hitNormalWorld;
+		end->x = e[0]; end->y = e[1]; end->z = e[2]; 
+		norm->x = n[0]; norm->y = n[1]; norm->z = n[2]; 
+		return true;
 	}
-	::printf("FOO: %f\n", foo); 
-/*
-	activeQuad->setOutputThrust(0, (mRCPitch - 1000.0f) / 1000.0f); 
-	activeQuad->setOutputThrust(2, (mRCPitch - 1000.0f) / 1000.0f); 
-	activeQuad->setOutputThrust(1, (mRCRoll - 1000.0f) / 1000.0f); 
-	activeQuad->setOutputThrust(3, (mRCRoll - 1000.0f) / 1000.0f); 
-*/
+	return false;
+}
+
+void Application::handleInput(double dt){
+	// Throttle
+	if(_key_down[KEY_KEY_W]){
+		mRCThrottle += dt * 0.1; 	
+	} else if(_key_down[KEY_KEY_S]){
+		mRCThrottle -= dt * 0.1; 
+	} else {
+		
+	}
+
+	// Yaw
+	if(_key_down[KEY_KEY_D]){
+		if(mRCYaw < 0.5) mRCYaw = 0.5; 
+		mRCYaw += dt * 0.2; 	
+	} else if(_key_down[KEY_KEY_A]){
+		if(mRCYaw > 0.5) mRCYaw = 0.5; 
+		mRCYaw -= dt * 0.2; 
+	} else {
+		mRCYaw = 0.5; 
+	}	
+
+	// Pitch 
+	if(_key_down[KEY_UP]){
+		if(mRCPitch < 0.5) mRCPitch = 0.5; 
+		mRCPitch += dt * 0.2; 	
+	} else if(_key_down[KEY_DOWN]){
+		if(mRCPitch > 0.5) mRCPitch = 0.5; 
+		mRCPitch -= dt * 0.2; 
+	} else {
+		mRCPitch = 0.5; 
+	}	
+
+	// Roll 
+	if(_key_down[KEY_RIGHT]){
+		if(mRCRoll < 0.5) mRCRoll = 0.5; 
+		mRCRoll += dt * 0.2; 	
+	} else if(_key_down[KEY_LEFT]){
+		if(mRCRoll > 0.5) mRCRoll = 0.5; 
+		mRCRoll -= dt * 0.2; 
+	} else {
+		mRCRoll = 0.5; 
+	}	
+
+	if(mRCThrottle > 1.0f) mRCThrottle = 1.0f; if(mRCThrottle < 0.0f) mRCThrottle = 0.0f; 
+	if(mRCYaw > 1.0f) mRCYaw = 1.0f; if(mRCYaw < 0.0f) mRCYaw = 0.0f; 
+	if(mRCPitch > 1.0f) mRCPitch = 1.0f; if(mRCPitch < 0.0f) mRCPitch = 0.0f; 
+	if(mRCRoll > 1.0f) mRCRoll = 1.0f; if(mRCRoll < 0.0f) mRCRoll = 0.0f; 
+}
+
+void Application::updateCamera(){
+	glm::quat rot = activeQuad->getRotation(); 
+	glm::vec3 pos = activeQuad->getPosition(); 
+
+	glm::vec3 cpos = pos + rot * glm::vec3(0, 0, -3); 
+	cpos.y = pos.y + 2; 
+	glm::vec3 cnorm; 
+	clipRay(pos, cpos, &cpos, &cnorm); 
+
+	mCamera->setPosition(vector3df(cpos.x, cpos.y, cpos.z)); 
+	mCamera->setTarget(vector3df(pos.x, pos.y, pos.z));
+}
+
+void Application::run(){
+	long long time = irrTimer->getTime(); 
+	double dt = (time - TimeStamp) * 0.001f;
+	TimeStamp = time; 
+
 	_angle += _spin * dt; 
 	glm::quat q(cos(glm::radians(_angle / 2)), 0, sin(glm::radians(_angle / 2)), 0); 
 	//activeQuad->setRotation(q); 
@@ -125,6 +193,8 @@ void Application::run(){
 		updatePhysics(0.018);
 		activeQuad->update(dt);
 		updateNetwork(dt); 
+		updateCamera(); 
+		handleInput(dt); 
 	}
 	
 	irrDriver->beginScene(true, true, SColor(255, 20, 0, 0));
@@ -155,30 +225,6 @@ bool Application::OnEvent(const SEvent &ev) {
 			case KEY_KEY_Q: 
 				paused = ~paused; 
 				break; 
-			case KEY_KEY_T:
-				mRCThrottle += 50;
-				break;
-			case KEY_KEY_G:
-				mRCThrottle -= 50;
-				break;
-			case KEY_LEFT:
-				mRCRoll -= 50;
-				break;
-			case KEY_RIGHT:
-				mRCRoll += 50; 
-				break;
-			case KEY_UP:
-				mRCPitch += 50;
-				break;
-			case KEY_DOWN:
-				mRCPitch -= 50;
-				break; 
-			case KEY_KEY_F:
-				mRCYaw -= 50; 
-				break; 
-			case KEY_KEY_H:
-				mRCYaw += 50; 
-				break; 
 			case KEY_KEY_O: 
 				_spin += 0.5; 
 				break; 
@@ -200,6 +246,7 @@ bool Application::OnEvent(const SEvent &ev) {
 			}
 			case KEY_KEY_7: {
 				static int id = 0; 
+				glm::quat y = glm::quat(cos(glm::radians(90.0/2)), 0, sin(glm::radians(90.0/2)), 0); 
 				glm::quat rots[5] = {
 					glm::quat(cos(glm::radians(0.0) / 2), 0, 0, sin(glm::radians(0.0) / 2)), // level
 					glm::quat(cos(glm::radians(-45.0) / 2), 0, 0, sin(glm::radians(-45.0) / 2)), // left 
@@ -208,7 +255,7 @@ bool Application::OnEvent(const SEvent &ev) {
 					glm::quat(cos(glm::radians(45.0) / 2), sin(glm::radians(45.0) / 2), 0, 0) // back
 				}; 
 				activeQuad->setPosition(glm::vec3(0, 10, 0)); 
-				activeQuad->setRotation(rots[id++]); 
+				activeQuad->setRotation(rots[id++] * y); 
 				activeQuad->setAngularVelocity(glm::vec3(0, 0, 0)); 
 				id = id % (sizeof(rots) / sizeof(rots[0])); 
 				break; 
@@ -321,13 +368,17 @@ void Application::UpdateRender(btRigidBody *TObject) {
 }
 
 void Application::updateNetwork(double dt){
-	struct servo_packet {
+	#define MODE_CLIENT_SIM 0
+	#define MODE_SERVER_SIM 1
+	struct server_packet {
+		uint8_t mode; 
 		int16_t servo[8]; 
 		double pos[3]; 
+		double vel[3]; 
 		double euler[3]; 
 	}; 
 
-	struct state_packet {
+	struct client_packet {
 		double timestamp; 
 		double gyro[3]; 
 		double accel[3]; 
@@ -337,7 +388,7 @@ void Application::updateNetwork(double dt){
 		double rcin[8]; 
 	}; 
 
-	struct servo_packet pkt; 
+	struct server_packet pkt; 
 
 	static double time = 0; 
 	static glm::vec3 angles(0, 0, 0); 
@@ -347,93 +398,83 @@ void Application::updateNetwork(double dt){
 		float pitch = pkt.euler[1]; 
 		float yaw = pkt.euler[2]; 
 
-		printf("servo(%d %d %d %d) rpy(%f %f %f)\n", pkt.servo[0], pkt.servo[1], pkt.servo[2], pkt.servo[3], roll, pitch, yaw); 
+		if(pkt.mode == MODE_SERVER_SIM){
+			activeQuad->setSimulationOn(false); 
+			activeQuad->setPosition(glm::vec3(pkt.pos[1], -pkt.pos[2], pkt.pos[0])); 
+			// yaw = y, pitch = x, roll = z; 
+			glm::quat rr(cos(-roll / 2), 0, 0, sin(-roll / 2));  
+			glm::quat rp(cos(-pitch / 2), sin(-pitch / 2), 0, 0);  
+			glm::quat ry(cos(yaw / 2), 0, sin(yaw / 2), 0);  
+
+			activeQuad->setRotation(ry * rp * rr); 
+			activeQuad->setLinearVelocity(glm::vec3(pkt.vel[1], -pkt.vel[2], pkt.vel[0])); 
+
+			printf("pos(%f %f %f) vel(%f %f %f)\n", pkt.pos[0], pkt.pos[1], pkt.pos[2], pkt.vel[0], pkt.vel[1], pkt.vel[2]); 
+		} else if(pkt.mode == MODE_CLIENT_SIM){
+			activeQuad->setSimulationOn(true); 
+		}
+
+		//printf("servo(%d %d %d %d) rpy(%f %f %f)\n", pkt.servo[0], pkt.servo[1], pkt.servo[2], pkt.servo[3], roll, pitch, yaw); 
 		for(unsigned c = 0; c < 8; c++){
 			activeQuad->setOutputThrust(c, (pkt.servo[c] - 1000) / 1000.0f); 
 		}
-		/*
-		activeQuad->setPosition(glm::vec3(pkt.pos[1], -pkt.pos[2], pkt.pos[0])); 
-		// yaw = y, pitch = x, roll = z; 
-		glm::quat rr(cos(-roll / 2), 0, 0, sin(-roll / 2));  
-		glm::quat rp(cos(-pitch / 2), sin(-pitch / 2), 0, 0);  
-		glm::quat ry(cos(-yaw / 2), 0, sin(-yaw / 2), 0);  
 
-		activeQuad->setRotation(rr * rp * ry); 
-		*/
 
-	struct state_packet state; 
-	memset(&state, 0, sizeof(state)); 
+		struct client_packet state; 
+		memset(&state, 0, sizeof(state)); 
 
-	// create a 3d world to ned frame rotation
-	glm::quat r0(cos(glm::radians(-90.0 / 2)), sin(glm::radians(-90.0 / 2)), 0, 0); 
-	glm::quat r1(cos(glm::radians(90.0 / 2)), 0, sin(glm::radians(90.0 / 2)), 0); 
-	glm::quat r2(cos(glm::radians(-90.0 / 2)), 0, 0, sin(glm::radians(-90.0 / 2))); 
-	glm::quat r2ef = r2 * r1; 
-/*
-	glm::vec3 test[3] = {
-		glm::vec3(1, 0, 0), 
-		glm::vec3(0, 1, 0),
-		glm::vec3(0, 0, 1)
-	}; 
+		// create a 3d world to ned frame rotation
+		glm::quat r0(cos(glm::radians(-90.0 / 2)), sin(glm::radians(-90.0 / 2)), 0, 0); 
+		glm::quat r1(cos(glm::radians(90.0 / 2)), 0, sin(glm::radians(90.0 / 2)), 0); 
+		glm::quat r2(cos(glm::radians(-90.0 / 2)), 0, 0, sin(glm::radians(-90.0 / 2))); 
+		glm::quat r2ef = r2 * r1; 
 
-	glm::vec3 res[3] = {
-		glm::vec3(0, 1, 0), 
-		glm::vec3(0, 0, -1), 
-		glm::vec3(-1, 0, 0)
-	}; 
+		glm::vec3 pos = activeQuad->getPosition(); 
+		glm::quat rot = activeQuad->getRotation(); 
+		glm::vec3 accel = activeQuad->getAccel(); 
+		glm::vec3 vel = activeQuad->getVelocity(); 
+		glm::vec3 gyro = activeQuad->getGyro(); 
+		
+		if(paused){
+			gyro = glm::vec3(0, 0, 0); 
+			//glm::quat r(cos(glm::radians(45.0 / 2)), sin(glm::radians(45.0 / 2)), 0, 0); 
+			//accel = r * glm::vec3(0, 0, -9.82); 
+		}
+		
+		glm::vec3 euler = glm::eulerAngles(rot);
+		glm::vec3 bx = rot * glm::vec3(1, 0, 0); 
+		glm::vec3 by = rot * glm::vec3(0, 1, 0); 
+		glm::vec3 bz = rot * glm::vec3(0, 0, 1); 
+		glm::vec3 px = bx - glm::vec3(0, bx.y, 0); 
+		glm::vec3 pz = bz - glm::vec3(0, bz.y, 0); 
 
-	glm::vec3 res[3] = {
-		glm::vec3(0, 0, -1), 
-		glm::vec3(1, 0, 0), 
-		glm::vec3(0, -1, 0)
-	}; 
+		float p = glm::orientedAngle(px, bx, glm::vec3(0, 1, 0));  
+		float r = glm::orientedAngle(glm::vec3(0, 0, 1), bz, glm::vec3(0, 1, 0));  
+		float y = 0; 
+		printf("euler: %f %f %f %f %f %f\n", glm::degrees(euler.z), glm::degrees(euler.x), glm::degrees(euler.y), glm::degrees(p), glm::degrees(r), glm::degrees(y)); 
 
-	for(int c = 0; c < 3; c++){
-		glm::vec3 t = r2ef * test[c]; 
-		glm::vec3 r = res[c]; 
-		printf("%f %f, %f %f, %f %f\n", t.x, r.x, t.y, r.y, t.z, r.z); 
-	}
-*/
-	glm::vec3 accel = activeQuad->getAccel(); 
-	glm::vec3 pos = activeQuad->getPosition(); 
-	glm::quat rot = activeQuad->getRotation(); 
-	glm::vec3 vel = activeQuad->getVelocity(); 
-	glm::vec3 gyro = activeQuad->getGyro(); 
-	
-	if(paused){
-		gyro = glm::vec3(0, 0, 0); 
-		//glm::quat r(cos(glm::radians(45.0 / 2)), sin(glm::radians(45.0 / 2)), 0, 0); 
-		//accel = r * glm::vec3(0, 0, -9.82); 
-	}
-	
-	glm::vec3 euler = glm::eulerAngles(rot); 
-	printf("euler: %f %f %f\n", euler.x, euler.y, euler.z); 
+		//state.euler[0] = r; state.euler[1] = -p; state.euler[2] = -y; 
+		state.euler[0] = euler.z; state.euler[1] = euler.x; state.euler[2] = euler.y; 
+		state.gyro[0] = -gyro.z; state.gyro[1] = -gyro.x; state.gyro[2] = gyro.y; 
+		state.accel[0] = accel.z; state.accel[1] = accel.x; state.accel[2] = -accel.y; 
+		//state.accel[0] = 0; state.accel[1] = 0; state.accel[2] = -9.82; 
+		state.pos[0] = pos.z; state.pos[1] = pos.x; state.pos[2] = -pos.y; 
+		state.vel[0] = vel.z; state.vel[1] = vel.x; state.vel[2] = -vel.y; 
 
-	state.euler[0] = euler.z; state.euler[1] = euler.x; state.euler[2] = euler.y; 
-	state.gyro[0] = -gyro.z; state.gyro[1] = -gyro.x; state.gyro[2] = gyro.y; 
-	state.accel[0] = accel.z; state.accel[1] = accel.x; state.accel[2] = -accel.y; 
-	//state.gyro[0] = gyro.x; state.gyro[1] = gyro.y; state.gyro[2] = gyro.z; 
-	//state.accel[0] = (mRCPitch - 1000.0) / 100.0; 
-	//state.accel[1] = (mRCRoll - 1000.0) / 100.0; 
-	//state.accel[2] = (mRCThrottle - 1000.0) / 100.0; 
-	//state.pos[0] = pos.x; state.pos[1] = pos.y; state.pos[2] = pos.z; 
-	//state.vel[0] = vel.x; state.vel[1] = vel.y; state.vel[2] = vel.z; 
-
-	state.rcin[0] = (mRCRoll - 1000.0) / 1000.0; 
-	state.rcin[1] = -(mRCPitch - 1000.0) / 1000.0; 
-	state.rcin[2] = (mRCThrottle - 1000.0) / 1000.0; 
-	state.rcin[3] = (mRCYaw - 1000.0) / 1000.0; 
-	printf("sending: acc(%f %f %f) gyr(%f %f %f) rc(%f %f %f %f)\n", 
-		state.accel[0], state.accel[1], state.accel[2],
-		state.gyro[0], state.gyro[1], state.gyro[2],
-		state.rcin[0], state.rcin[1], state.rcin[2], state.rcin[3]); 
-	sock.sendto(&state, sizeof(state), "127.0.0.1", 9003); 
+		state.rcin[0] = mRCRoll; 
+		state.rcin[1] = -mRCPitch; 
+		state.rcin[2] = mRCThrottle; 
+		state.rcin[3] = mRCYaw; 
+		printf("sending: acc(%f %f %f) gyr(%f %f %f) rc(%f %f %f %f)\n", 
+			state.accel[0], state.accel[1], state.accel[2],
+			state.gyro[0], state.gyro[1], state.gyro[2],
+			state.rcin[0], state.rcin[1], state.rcin[2], state.rcin[3]); 
+		sock.sendto(&state, sizeof(state), "127.0.0.1", 9003); 
 	}	
 }
 
 // Removes all objects from the world
 void Application::ClearObjects() {
-
 	for(list<btRigidBody *>::Iterator Iterator = Objects.begin(); Iterator != Objects.end(); ++Iterator) {
 		btRigidBody *Object = *Iterator;
 

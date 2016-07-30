@@ -17,11 +17,14 @@
 
 #pragma once
 
+#define GLM_FORCE_RADIANS
+
 #include <irrlicht.h>
 #include <btBulletCollisionCommon.h>
 #include <btBulletDynamicsCommon.h>
 #include <cstdlib>
 #include <glm/glm.hpp>
+#include <glm/gtx/vector_angle.hpp>
 
 #include "Socket.h"
 #include "Copter.h"
@@ -42,6 +45,7 @@ public:
 	btRigidBody * CreateBox(const btVector3 &TPosition, const vector3df &TScale, btScalar TMass, const char *texture = "rust0.jpg");
 	void CreateSphere(const btVector3 &TPosition, btScalar TRadius, btScalar TMass);
 	void updatePhysics(float dt);
+	void updateCamera(); 
 	void UpdateRender(btRigidBody *TObject);
 	void updateNetwork(double dt); 
 	void ClearObjects();
@@ -50,6 +54,8 @@ public:
 	Copter *getActiveQuad(){ return activeQuad; }
 	virtual bool OnEvent(const SEvent &TEvent);
 	
+	bool clipRay(const glm::vec3 &_start, const glm::vec3 &_end, glm::vec3 *end, glm::vec3 *norm); 
+
 	// Globals
 	bool Done = false;
 	btDiscreteDynamicsWorld *World;
@@ -61,17 +67,21 @@ public:
 	IVideoDriver *irrDriver;
 	ISceneManager *irrScene;
 	IGUIEnvironment *irrGUI;
+	ICameraSceneNode *mCamera; 
 	//IGUIStaticText* irrStatusText; 
 	IFileSystem *irrFile;
 	ITimer *irrTimer;
 	ILogger *irrLog;
 	Copter *activeQuad; 
 	list<btRigidBody *> Objects;
-	int16_t mRCThrottle, mRCYaw, mRCPitch, mRCRoll; 
+	double mRCThrottle, mRCYaw, mRCPitch, mRCRoll; 
 	float _spin; 
 	float _angle; 
 	SocketAPM sock; 
 	u32 TimeStamp; 
 	bool _key_down[KEY_KEY_CODES_COUNT]; 
+
+private: 
+	void handleInput(double dt); 
 };
 

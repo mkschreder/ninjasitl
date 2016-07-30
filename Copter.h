@@ -45,7 +45,6 @@ public:
 	void setOutputThrust(unsigned int id, float thrust); 
 
 	virtual irr::scene::ISceneNode *getSceneNode(){return mNode;}
-	virtual void attachCamera(irr::scene::ICameraSceneNode *cam); 
 
 	glm::quat getRotation(); 
 	glm::vec3 getVelocity(); 
@@ -57,6 +56,8 @@ public:
 	void setRotation(const glm::quat &rot); 
 	void setAngularVelocity(const glm::vec3 &v); 
 	void setLinearVelocity(const glm::vec3 &v); 
+
+	void setSimulationOn(bool on); 
 private:
 	typedef enum {
 		MOTOR_CW = 0, 
@@ -71,6 +72,12 @@ private:
 	btRigidBody *mBody;
 	Application *mApp; 
 
+	bool raytest(const glm::vec3 &_start, const glm::vec3 &dir, glm::vec3 &end, glm::vec3 &norm); 
+
 	irr::scene::ISceneNode *mNode;
 	irr::scene::ICameraSceneNode *mCamera; 
+
+	glm::vec3 _velocity; 
+	glm::vec3 _accel; 
+	bool _simulate; 
 };
