@@ -25,14 +25,17 @@ Copter::Copter(Application *app){
 	// Create a box rigid body
 	ISceneManager *irrScene = mApp->irrScene;
 	
-	ISceneNode *Node = irrScene->addCubeSceneNode(1.0f);
-	Node->setScale(vector3df(1, 0.1, 1));
-	Node->setMaterialFlag(EMF_LIGHTING, 1);
-	Node->setMaterialFlag(EMF_NORMALIZE_NORMALS, true);
+	IAnimatedMesh *mesh = irrScene->getMesh("quad_body.obj"); 
+	ISceneNode *Node = irrScene->addAnimatedMeshSceneNode(mesh);
+
+	//Node->setScale(vector3df(1, 0.1, 1));
+	//Node->setMaterialFlag(EMF_LIGHTING, 1);
+	//Node->setMaterialFlag(EMF_NORMALIZE_NORMALS, true);
 	Node->setMaterialTexture(0, mApp->irrDriver->getTexture("rust0.jpg"));
 	mNode = Node;
 
 	// add motor cubes	
+	/*
 	glm::mat4 pmat(
 		glm::vec4(0.0, 0.05, 0.5, 0.0),
 		glm::vec4(0.5, 0.05, 0.0, 0.0),
@@ -48,6 +51,7 @@ Copter::Copter(Application *app){
 		pn->setMaterialTexture(0, mApp->irrDriver->getTexture("rust0.jpg"));
 		Node->addChild(pn); 
 	}
+	*/
 	// Set the initial position of the object
 	btTransform Transform;
 	Transform.setIdentity();
@@ -128,7 +132,16 @@ void Copter::render(irr::video::IVideoDriver *drv){
 	SMaterial m;
 	m.Lighting = false;
 	drv->setMaterial(m);
+	
+	glm::vec3 hit, norm; 
+	if(mApp->clipRay(pos, pos + rot * glm::vec3(100.0, 0, 0.0), &hit, &norm)){
+		drv->draw3DBox(aabbox3df(vector3df(hit.x - 0.1, hit.y - 0.1, hit.z - 0.1), vector3df(hit.x + 0.1, hit.y + 0.1, hit.z + 0.1)), SColor(255, 255, 0, 0)); 
+		drv->draw3DLine(vector3df(pos.x, pos.y, pos.z),
+			vector3df(hit.x, hit.y, hit.z), 
+			SColor( 255, 255, 0, 0 ));
+	
 
+	}
 	drv->draw3DLine(vector3df(pos.x, pos.y, pos.z),
 		vector3df(pos.x + ax.x, pos.y + ax.y, pos.z + ax.z), 
 		SColor( 255, 255, 0, 0 ));
@@ -206,7 +219,7 @@ glm::vec3 Copter::getAccel(){
 	glm::quat rot = getRotation(); 
 	// accelerometer measures both accel in ef and force opposite to gravity
 	//return glm::inverse(rot) * (_accel + glm::vec3(0, 9.82, 0));
-	return glm::inverse(rot) * (_accel + glm::vec3(0, 9.82, 0));
+	return glm::inverse(rot) * (glm::vec3(0, 9.82, 0));
 }
 
 glm::vec3 Copter::getGyro(){
@@ -254,7 +267,7 @@ void Copter::update(float dt){
 
 		// update accel
 		glm::vec3 vel = getVelocity(); 
-		_accel = (vel - _velocity) / dt; //0.018f; 
+		_accel = (vel - _velocity) / 0.018f; 
 		_velocity = vel; 
 	} else {
 		// update position based on velocity

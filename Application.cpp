@@ -41,7 +41,8 @@ Application::Application():sock(true){
 	irrDevice->getCursorControl()->setVisible(0);
 
 	// load a map
-	irrDevice->getFileSystem()->addFileArchive("map-20kdm2.pk3");
+	irrDevice->getFileSystem()->addFolderFileArchive("base");
+	irrDevice->getFileSystem()->addFileArchive("base/map-20kdm2.pk3");
 	scene::IAnimatedMesh* mesh = irrScene->getMesh("20kdm2.bsp");
 	scene::ISceneNode* node = 0;
 
@@ -54,6 +55,10 @@ Application::Application():sock(true){
 
 	node->setScale(core::vector3df(0.1, 0.1, 0.1)); 
 	node->setPosition(core::vector3df(-130,-14.4,-124.9));
+
+	ITriangleSelector *sel = irrScene->createOctreeTriangleSelector(mesh->getMesh(0), node, 128); 
+	node->setTriangleSelector(sel); 
+	sel->drop(); 
 
 	// Initialize bullet
 	CollisionConfiguration = new btDefaultCollisionConfiguration();
@@ -100,6 +105,21 @@ Application::~Application(){
 }
 
 bool Application::clipRay(const glm::vec3 &_start, const glm::vec3 &_end, glm::vec3 *end, glm::vec3 *norm) {
+	ISceneCollisionManager *cm = irrScene->getSceneCollisionManager(); 
+	line3d<f32> ray; 
+	ray.start = vector3df(_start.x, _start.y, _start.z); 
+	ray.end = vector3df(_end.x, _end.y, _end.z); 
+	triangle3df hittri; 
+	vector3df isect; 
+	ISceneNode *node = cm->getSceneNodeAndCollisionPointFromRay(ray, 
+		isect, hittri, 0, 0); 
+	if(node){
+		end->x = isect.X; end->y = isect.Y, end->z = isect.Z; 
+		return true; 
+	}
+	return false; 
+	/*
+	// bullet collision system
 	btVector3 s(_start.x, _start.y, _start.z); 
 	btVector3 e(_end.x, _end.y, _end.z); 
 
@@ -116,6 +136,7 @@ bool Application::clipRay(const glm::vec3 &_start, const glm::vec3 &_end, glm::v
 		return true;
 	}
 	return false;
+	*/
 }
 
 void Application::handleInput(double dt){
@@ -171,8 +192,8 @@ void Application::updateCamera(){
 	glm::quat rot = activeQuad->getRotation(); 
 	glm::vec3 pos = activeQuad->getPosition(); 
 
-	glm::vec3 cpos = pos + rot * glm::vec3(0, 0, -3); 
-	cpos.y = pos.y + 2; 
+	glm::vec3 cpos = pos + rot * glm::vec3(0, 0, -2); 
+	cpos.y = pos.y + 1; 
 	glm::vec3 cnorm; 
 	clipRay(pos, cpos, &cpos, &cnorm); 
 
@@ -376,7 +397,7 @@ void Application::updateNetwork(double dt){
 		double pos[3]; 
 		double vel[3]; 
 		double euler[3]; 
-		double acc[3]; 
+		//double acc[3]; 
 	}; 
 
 	struct client_packet {

@@ -76,6 +76,7 @@ private:
 	bool raytest(const glm::vec3 &_start, const glm::vec3 &dir, glm::vec3 &end, glm::vec3 &norm); 
 
 	irr::scene::ISceneNode *mNode;
+	irr::scene::ISceneNode *_hit_box; 
 	irr::scene::ICameraSceneNode *mCamera; 
 
 	glm::vec3 _velocity; 
