@@ -49,6 +49,8 @@ public:
 	glm::quat getRotation(); 
 	glm::vec3 getVelocity(); 
 	glm::vec3 getPosition(); 
+	glm::ivec3 getLocation(); 
+	glm::vec3 getMagneticField(); 
 	glm::vec3 getAccel(); 
 	glm::vec3 getGyro(); 
 	
@@ -56,9 +58,15 @@ public:
 	void setRotation(const glm::quat &rot); 
 	void setAngularVelocity(const glm::vec3 &v); 
 	void setLinearVelocity(const glm::vec3 &v); 
-	void setLinearAcceleration(const glm::vec3 &v); 
+
+	// for forcing values in supervised mode
+	void setAccelerometer(const glm::vec3 &v); 
+	void setMagneticField(const glm::vec3 &v); 
 
 	void setSimulationOn(bool on); 
+
+	glm::vec3 calcMagFieldIntensity(); 
+	glm::vec3 calcAcceleration(); 
 private:
 	typedef enum {
 		MOTOR_CW = 0, 
@@ -72,7 +80,8 @@ private:
 	} _motors[8]; 
 	btRigidBody *mBody;
 	Application *mApp; 
-
+	
+	void updateLocation(); 
 	bool raytest(const glm::vec3 &_start, const glm::vec3 &dir, glm::vec3 &end, glm::vec3 &norm); 
 
 	irr::scene::ISceneNode *mNode;
@@ -80,6 +89,10 @@ private:
 	irr::scene::ICameraSceneNode *mCamera; 
 
 	glm::vec3 _velocity; 
+	glm::vec3 _linear_acceleration; 
 	glm::vec3 _accel; 
+	glm::vec3 _mag; 
+	glm::ivec3 _location; 
+	glm::ivec3 _home; 
 	bool _simulate; 
 };

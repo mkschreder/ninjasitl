@@ -77,11 +77,14 @@ public:
 	double mRCThrottle, mRCYaw, mRCPitch, mRCRoll; 
 	float _spin; 
 	float _angle; 
+	uint8_t _mode; 
 	SocketAPM sock; 
 	u32 TimeStamp; 
 	bool _key_down[KEY_KEY_CODES_COUNT]; 
 
 private: 
 	void handleInput(double dt); 
+	bool _calibration; 
+	uint32_t _sent_count; 
 };
 

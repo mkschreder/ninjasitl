@@ -20,6 +20,31 @@
 
 #include "Application.h"
 
+#define MODE_CLIENT_SIM 0
+#define MODE_SERVER_SIM 1
+struct server_packet {
+	uint8_t mode; 
+	int16_t servo[8]; 
+	float pos[3]; 
+	float vel[3]; 
+	float euler[3]; 
+	float acc[3]; 
+	float mag[3]; 
+}; 
+
+struct client_packet {
+	uint32_t id; 
+	float timestamp; 
+	float gyro[3]; 
+	float accel[3]; 
+	float euler[3]; 
+	float pos[3]; 
+	float vel[3]; 
+	float rcin[8]; 
+	int32_t loc[3]; 
+	float mag[3]; 
+}; 
+
 static int paused = 0; 
 Application::Application():sock(true){
 	mRCThrottle = 0; 
@@ -41,7 +66,7 @@ Application::Application():sock(true){
 	irrDevice->getCursorControl()->setVisible(0);
 
 	// load a map
-	irrDevice->getFileSystem()->addFolderFileArchive("base");
+	irrDevice->getFileSystem()->addFileArchive("base");
 	irrDevice->getFileSystem()->addFileArchive("base/map-20kdm2.pk3");
 	scene::IAnimatedMesh* mesh = irrScene->getMesh("20kdm2.bsp");
 	scene::ISceneNode* node = 0;
@@ -192,8 +217,8 @@ void Application::updateCamera(){
 	glm::quat rot = activeQuad->getRotation(); 
 	glm::vec3 pos = activeQuad->getPosition(); 
 
-	glm::vec3 cpos = pos + rot * glm::vec3(0, 0, -2); 
-	cpos.y = pos.y + 1; 
+	glm::vec3 cpos = pos + rot * glm::vec3(0, 0, -3); 
+	cpos.y = pos.y + 2; 
 	glm::vec3 cnorm; 
 	clipRay(pos, cpos, &cpos, &cnorm); 
 
@@ -232,8 +257,6 @@ void Application::run(){
 
 
 bool Application::OnEvent(const SEvent &ev) {
-	static int ph = 0; 
-
 	if(ev.EventType == EET_KEY_INPUT_EVENT){
 		_key_down[ev.KeyInput.Key] = ev.KeyInput.PressedDown; 
 	}
@@ -281,6 +304,23 @@ bool Application::OnEvent(const SEvent &ev) {
 				id = id % (sizeof(rots) / sizeof(rots[0])); 
 				break; 
 			}
+			case KEY_KEY_0: {
+				if(_mode != MODE_CLIENT_SIM){
+					printf("Can only calibrate in client sim mode!\n"); 
+					break; 
+				}
+				_calibration = !_calibration; 
+				if(!_calibration){
+					activeQuad->setSimulationOn(true); 
+					World->setGravity(btVector3(0, -9.82, 0)); 
+					printf("Left calibration mode!\n"); 
+				} else {
+					activeQuad->setSimulationOn(false); 
+					World->setGravity(btVector3(0, 0, 0)); 
+					printf("Entered calibration mode\n");
+				}
+				break; 
+			}
 			case KEY_KEY_8: {
 				static int id = 0; 
 				glm::quat rots[7] = {
@@ -292,6 +332,8 @@ bool Application::OnEvent(const SEvent &ev) {
 					glm::quat(cos(glm::radians(0.0) / 2), 0, 0, sin(glm::radians(0.0) / 2)), // level
 					glm::quat(cos(glm::radians(180.0) / 2), 0, 0, sin(glm::radians(180.0) / 2)) // upsidedown
 				}; 
+				activeQuad->setPosition(glm::vec3(0, 10, 0)); 
+				activeQuad->setAngularVelocity(glm::vec3(0, -1, 0)); 
 				activeQuad->setRotation(rots[id++]); 
 				id = id % 7; 
 				break; 
@@ -389,37 +431,16 @@ void Application::UpdateRender(btRigidBody *TObject) {
 }
 
 void Application::updateNetwork(double dt){
-	#define MODE_CLIENT_SIM 0
-	#define MODE_SERVER_SIM 1
-	struct server_packet {
-		uint8_t mode; 
-		int16_t servo[8]; 
-		double pos[3]; 
-		double vel[3]; 
-		double euler[3]; 
-		//double acc[3]; 
-	}; 
-
-	struct client_packet {
-		double timestamp; 
-		double gyro[3]; 
-		double accel[3]; 
-		double euler[3]; 
-		double pos[3]; 
-		double vel[3]; 
-		double rcin[8]; 
-	}; 
-
 	struct server_packet pkt; 
 
-	static double time = 0; 
 	static glm::vec3 angles(0, 0, 0); 
 
-	if(sock.recv(&pkt, sizeof(pkt), 0) == sizeof(pkt)){
+	if(sock.recv(&pkt, sizeof(pkt), 1) == sizeof(pkt)){
 		float roll = pkt.euler[0]; 
 		float pitch = pkt.euler[1]; 
 		float yaw = pkt.euler[2]; 
 
+		_mode = pkt.mode; 
 		if(pkt.mode == MODE_SERVER_SIM){
 			activeQuad->setSimulationOn(false); 
 			activeQuad->setPosition(glm::vec3(pkt.pos[1], -pkt.pos[2], pkt.pos[0])); 
@@ -430,8 +451,12 @@ void Application::updateNetwork(double dt){
 
 			activeQuad->setRotation(ry * rp * rr); 
 			activeQuad->setLinearVelocity(glm::vec3(pkt.vel[1], -pkt.vel[2], pkt.vel[0])); 
-			//activeQuad->setLinearAcceleration(glm::vec3(pkt.acc[1], -pkt.acc[2], pkt.acc[0])); 
-
+			activeQuad->setAccelerometer(glm::vec3(pkt.acc[1], -pkt.acc[2], pkt.acc[0])); 
+			activeQuad->setMagneticField(glm::vec3(pkt.mag[1], -pkt.mag[2], pkt.mag[0])); 
+		
+			//glm::vec3 lm = activeQuad->calcMagFieldIntensity(); 
+			//printf("mas(%f %f %f)\n", pkt.mag[1], -pkt.mag[2], pkt.mag[0]); 
+			//printf("mal(%f %f %f)\n", lm.x, lm.y, lm.z);  
 			//printf("pos(%f %f %f) vel(%f %f %f)\n", pkt.pos[0], pkt.pos[1], pkt.pos[2], pkt.vel[0], pkt.vel[1], pkt.vel[2]); 
 		} else if(pkt.mode == MODE_CLIENT_SIM){
 			activeQuad->setSimulationOn(true); 
@@ -441,7 +466,7 @@ void Application::updateNetwork(double dt){
 		for(unsigned c = 0; c < 8; c++){
 			activeQuad->setOutputThrust(c, (pkt.servo[c] - 1000) / 1000.0f); 
 		}
-
+	}
 		struct client_packet state; 
 		memset(&state, 0, sizeof(state)); 
 
@@ -454,8 +479,10 @@ void Application::updateNetwork(double dt){
 		glm::vec3 pos = activeQuad->getPosition(); 
 		glm::quat rot = activeQuad->getRotation(); 
 		glm::vec3 accel = activeQuad->getAccel(); 
+		glm::ivec3 loc = activeQuad->getLocation(); 
+		glm::vec3 mag = activeQuad->getMagneticField();
 		glm::vec3 vel = glm::inverse(rot) * activeQuad->getVelocity(); 
-		glm::vec3 gyro = activeQuad->getGyro(); 
+		glm::vec3 gyro = activeQuad->getGyro() * 2.0f; 
 		
 		if(paused){
 			gyro = glm::vec3(0, 0, 0); 
@@ -470,31 +497,39 @@ void Application::updateNetwork(double dt){
 		glm::vec3 px = bx - glm::vec3(0, bx.y, 0); 
 		glm::vec3 pz = bz - glm::vec3(0, bz.y, 0); 
 
-		float p = glm::orientedAngle(px, bx, glm::vec3(0, 1, 0));  
-		float r = glm::orientedAngle(glm::vec3(0, 0, 1), bz, glm::vec3(0, 1, 0));  
-		float y = 0; 
+		//float p = glm::orientedAngle(px, bx, glm::vec3(0, 1, 0));  
+		//float r = glm::orientedAngle(glm::vec3(0, 0, 1), bz, glm::vec3(0, 1, 0));  
+		//float y = 0; 
 		//printf("euler: %f %f %f %f %f %f\n", glm::degrees(euler.z), glm::degrees(euler.x), glm::degrees(euler.y), glm::degrees(p), glm::degrees(r), glm::degrees(y)); 
 
 		//state.euler[0] = r; state.euler[1] = -p; state.euler[2] = -y; 
+		state.id = _sent_count++; 
 		state.euler[0] = euler.z; state.euler[1] = euler.x; state.euler[2] = euler.y; 
 		state.gyro[0] = -gyro.z; state.gyro[1] = -gyro.x; state.gyro[2] = gyro.y; 
 		state.accel[0] = accel.z; state.accel[1] = accel.x; state.accel[2] = -accel.y; 
 		//state.accel[0] = 0; state.accel[1] = 0; state.accel[2] = -9.82; 
 		state.pos[0] = pos.z; state.pos[1] = pos.x; state.pos[2] = -pos.y; 
+		state.loc[0] = loc.z; state.loc[1] = loc.x; state.loc[2] = -loc.y; 
+		state.mag[0] = mag.z; state.mag[1] = mag.x; state.mag[2] = -mag.y; 
 		state.vel[0] = vel.z; state.vel[1] = vel.x; state.vel[2] = -vel.y; 
-
+		
 		state.rcin[0] = mRCRoll; 
-		state.rcin[1] = -mRCPitch; 
+		state.rcin[1] = mRCPitch; 
 		state.rcin[2] = mRCThrottle; 
 		state.rcin[3] = mRCYaw; 
-		/*
-		printf("sending: acc(%f %f %f) gyr(%f %f %f) rc(%f %f %f %f)\n", 
+
+		printf("sending: acc(%f %f %f) gyr(%f %f %f) mag(%f %f %f) vel(%f %f %f) loc(%d %d %d) rc(%f %f %f %f)\n", 
 			state.accel[0], state.accel[1], state.accel[2],
 			state.gyro[0], state.gyro[1], state.gyro[2],
+			state.mag[0], state.mag[1], state.mag[2],
+			state.vel[0], state.vel[1], state.vel[2], 
+			state.loc[0], state.loc[1], state.loc[2],
 			state.rcin[0], state.rcin[1], state.rcin[2], state.rcin[3]); 
-			*/
-		sock.sendto(&state, sizeof(state), "127.0.0.1", 9003); 
-	}	
+		int ret = sock.sendto(&state, sizeof(state), "127.0.0.1", 9005); 
+		if(ret < 0){
+			perror("socket: "); 
+		}
+	//}	
 }
 
 // Removes all objects from the world
