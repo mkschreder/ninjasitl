@@ -20,6 +20,11 @@
 
 #include "Application.h"
 
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <stdio.h>
+
 #define MODE_CLIENT_SIM 0
 #define MODE_SERVER_SIM 1
 struct server_packet {
@@ -46,7 +51,9 @@ struct client_packet {
 }; 
 
 static int paused = 0; 
-Application::Application():sock(true){
+Application::Application():
+//	sock(true){
+{
 	mRCThrottle = 0; 
 	mRCPitch = 0.5; 
 	mRCYaw = 0.5; 
@@ -115,7 +122,16 @@ Application::Application():sock(true){
 
 	activeQuad = new Copter(this);
 
-	sock.bind("127.0.0.1", 9002); 
+	//sock.bind("127.0.0.1", 9002); 
+	//sock.set_blocking(false); 
+
+	int out = shmget(9005, sizeof(struct client_packet), IPC_CREAT | 0666); 
+	if(out < 0) perror("shmget"); 
+	int in = shmget(9003, sizeof(struct server_packet), IPC_CREAT | 0666); 
+	if(in < 0) perror("shmat"); 	
+
+	_shmout = (char*)shmat(out, NULL, 0); 
+	_shmin = (char*)shmat(in, NULL, 0); 
 }
 
 Application::~Application(){
@@ -216,14 +232,24 @@ void Application::handleInput(double dt){
 void Application::updateCamera(){
 	glm::quat rot = activeQuad->getRotation(); 
 	glm::vec3 pos = activeQuad->getPosition(); 
+	glm::vec3 e = glm::eulerAngles(rot); 
 
-	glm::vec3 cpos = pos + rot * glm::vec3(0, 0, -3); 
-	cpos.y = pos.y + 2; 
+	glm::vec3 cpos = pos + rot * glm::vec3(0, 0, -2); 
+	cpos.y = pos.y + 1; 
 	glm::vec3 cnorm; 
 	clipRay(pos, cpos, &cpos, &cnorm); 
 
 	mCamera->setPosition(vector3df(cpos.x, cpos.y, cpos.z)); 
 	mCamera->setTarget(vector3df(pos.x, pos.y, pos.z));
+	/*
+	glm::vec3 cp = pos + rot * glm::vec3(0, 0, 0.5); 
+	glm::vec3 ct = pos + rot * glm::vec3(0, 0, 1.0); 
+	glm::vec3 cu = rot * glm::vec3(0, 1.0, 0.0); 
+	mCamera->setPosition(vector3df(cp.x, cp.y, cp.z)); 
+	mCamera->setTarget(vector3df(ct.x, ct.y, ct.z));
+	mCamera->setUpVector(vector3df(cu.x, cu.y, cu.z));
+	mCamera->setRotation(vector3df(glm::degrees(e.x), glm::degrees(e.y), glm::degrees(e.z))); 
+	*/
 }
 
 void Application::run(){
@@ -236,7 +262,8 @@ void Application::run(){
 	//activeQuad->setRotation(q); 
 
 	if(!paused){
-		updatePhysics(0.018);
+		//updatePhysics(0.018f * 0.5);
+		updatePhysics(dt);
 		activeQuad->update(dt);
 		updateNetwork(dt); 
 		updateCamera(); 
@@ -435,7 +462,8 @@ void Application::updateNetwork(double dt){
 
 	static glm::vec3 angles(0, 0, 0); 
 
-	if(sock.recv(&pkt, sizeof(pkt), 1) == sizeof(pkt)){
+	//if(sock.recv(&pkt, sizeof(pkt), 1) == sizeof(pkt)){
+	memcpy(&pkt, _shmin, sizeof(server_packet)); 
 		float roll = pkt.euler[0]; 
 		float pitch = pkt.euler[1]; 
 		float yaw = pkt.euler[2]; 
@@ -466,7 +494,7 @@ void Application::updateNetwork(double dt){
 		for(unsigned c = 0; c < 8; c++){
 			activeQuad->setOutputThrust(c, (pkt.servo[c] - 1000) / 1000.0f); 
 		}
-	}
+	//}
 		struct client_packet state; 
 		memset(&state, 0, sizeof(state)); 
 
@@ -481,8 +509,8 @@ void Application::updateNetwork(double dt){
 		glm::vec3 accel = activeQuad->getAccel(); 
 		glm::ivec3 loc = activeQuad->getLocation(); 
 		glm::vec3 mag = activeQuad->getMagneticField();
-		glm::vec3 vel = glm::inverse(rot) * activeQuad->getVelocity(); 
-		glm::vec3 gyro = activeQuad->getGyro() * 2.0f; 
+		glm::vec3 vel = activeQuad->getVelocity(); 
+		glm::vec3 gyro = activeQuad->getGyro(); 
 		
 		if(paused){
 			gyro = glm::vec3(0, 0, 0); 
@@ -509,7 +537,7 @@ void Application::updateNetwork(double dt){
 		state.accel[0] = accel.z; state.accel[1] = accel.x; state.accel[2] = -accel.y; 
 		//state.accel[0] = 0; state.accel[1] = 0; state.accel[2] = -9.82; 
 		state.pos[0] = pos.z; state.pos[1] = pos.x; state.pos[2] = -pos.y; 
-		state.loc[0] = loc.z; state.loc[1] = loc.x; state.loc[2] = -loc.y; 
+		state.loc[0] = loc.z; state.loc[1] = loc.x; state.loc[2] = loc.y; 
 		state.mag[0] = mag.z; state.mag[1] = mag.x; state.mag[2] = -mag.y; 
 		state.vel[0] = vel.z; state.vel[1] = vel.x; state.vel[2] = -vel.y; 
 		
@@ -525,10 +553,8 @@ void Application::updateNetwork(double dt){
 			state.vel[0], state.vel[1], state.vel[2], 
 			state.loc[0], state.loc[1], state.loc[2],
 			state.rcin[0], state.rcin[1], state.rcin[2], state.rcin[3]); 
-		int ret = sock.sendto(&state, sizeof(state), "127.0.0.1", 9005); 
-		if(ret < 0){
-			perror("socket: "); 
-		}
+		//int ret = sock.sendto(&state, sizeof(state), "127.0.0.1", 9005); 
+		memcpy(_shmout, &state, sizeof(state)); 
 	//}	
 }
 

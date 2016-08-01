@@ -169,7 +169,7 @@ Copter::Copter(Application *app){
 	mApp = app;
 
 	// set home location
-	_home = glm::ivec3(149.165230 * 1.0e7, 0, -35.363261 * 1.0e7); 
+	_home = glm::ivec3(149.165230 * 1.0e7, 584 * 1e2, -35.363261 * 1.0e7); 
 
 	// Create a box rigid body
 	ISceneManager *irrScene = mApp->irrScene;
@@ -235,11 +235,16 @@ Copter::Copter(Application *app){
 	// Add it to the world
 	mApp->World->addRigidBody(mBody);
 	mApp->Objects.push_back(mBody);
-
+/*
 	_motors[1-1] = (struct motor){ glm::vec3( 0.5, 0.05, 0.0), MOTOR_CCW };
 	_motors[2-1] = (struct motor){ glm::vec3(-0.5, 0.05, 0.0), MOTOR_CCW };
 	_motors[3-1] = (struct motor){ glm::vec3( 0.0, 0.05, 0.5), MOTOR_CW };
 	_motors[4-1] = (struct motor){ glm::vec3( 0.0, 0.05,-0.5), MOTOR_CW };
+*/
+	_motors[1-1] = (struct motor){ glm::vec3( 0.15, 0.0, 0.1), MOTOR_CCW };
+	_motors[2-1] = (struct motor){ glm::vec3(-0.15, 0.0,-0.1), MOTOR_CCW };
+	_motors[3-1] = (struct motor){ glm::vec3(-0.15, 0.0, 0.1), MOTOR_CW };
+	_motors[4-1] = (struct motor){ glm::vec3( 0.15, 0.0,-0.1), MOTOR_CW };
 
 	for(int c = 0; c < 4; c++){
 		_motors[c].thrust = 0.2; 
@@ -281,17 +286,17 @@ void Copter::updateLocation(){
 	// inverse of LOCATION_SCALING_FACTOR
 	#define LOCATION_SCALING_FACTOR_INV 89.83204953368922f
 
-	float lat = _home.x; 
-	float lng = _home.z; 
+	float lat = _home.z; 
+	float lng = _home.x; 
 	float scale = cosf(glm::radians(lat * 1.0e-7f));
 	if(scale < 0.01f) scale = 0.01f; else if(scale > 1.0f) scale = 1.0f; 
 
-	int32_t dlat = position.x * LOCATION_SCALING_FACTOR_INV;
-	int32_t dlng = (position.z * LOCATION_SCALING_FACTOR_INV) / scale;
+	int32_t dlat = position.z * LOCATION_SCALING_FACTOR_INV;
+	int32_t dlng = (position.x * LOCATION_SCALING_FACTOR_INV) / scale;
 
-	_location.x = lat + dlat;
+	_location.x = lng + dlng;
 	_location.y = _home.y + position.y * 100.0f; 
-	_location.z = lng + dlng;
+	_location.z = lat + dlat;
 }
 
 glm::vec3 Copter::calcAcceleration(){
@@ -341,9 +346,10 @@ glm::vec3 Copter::calcMagFieldIntensity(){
 
 void Copter::render(irr::video::IVideoDriver *drv){
 	glm::quat rot = getRotation();
-	glm::vec3 pos = getPosition() + rot * glm::vec3(0, 0.2, 0);
+	glm::vec3 pos = getPosition(); // + rot * glm::vec3(0, 0.2, 0);
 	glm::vec3 acc = rot * _accel;  
 	glm::vec3 mag = (rot * _mag) * 0.001f;  
+	glm::vec3 vel = getVelocity(); 
 	glm::vec3 ax = rot * glm::vec3(1.0, 0.0, 0.0); 
 	glm::vec3 ay = rot * glm::vec3(0.0, 1.0, 0.0); 
 	glm::vec3 az = rot * glm::vec3(0.0, 0.0, 1.0); 
@@ -394,6 +400,10 @@ void Copter::render(irr::video::IVideoDriver *drv){
 
 	drv->draw3DLine(vector3df(pos.x, pos.y, pos.z),
 		vector3df(pos.x + _linear_acceleration.x, pos.y + _linear_acceleration.y, pos.z + _linear_acceleration.z), 
+		SColor( 255, 255, 0, 255 ));
+
+	drv->draw3DLine(vector3df(pos.x, pos.y, pos.z),
+		vector3df(pos.x + vel.x, pos.y + vel.y, pos.z + vel.z), 
 		SColor( 255, 255, 0, 255 ));
 
 
@@ -515,7 +525,7 @@ void Copter::update(float dt){
 
 		// update accel
 		glm::vec3 vel = getVelocity(); 
-		_linear_acceleration = (vel - _velocity); 
+		_linear_acceleration = (vel - _velocity) / dt; // / 0.018f; 
 		_velocity = vel; 
 
 		_accel = calcAcceleration(); 
