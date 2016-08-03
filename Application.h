@@ -54,7 +54,7 @@ public:
 	Copter *getActiveQuad(){ return activeQuad; }
 	virtual bool OnEvent(const SEvent &TEvent);
 	
-	bool clipRay(const glm::vec3 &_start, const glm::vec3 &_end, glm::vec3 *end, glm::vec3 *norm); 
+	bool clipRay(const glm::vec3 &_start, const glm::vec3 &_end, glm::vec3 *end, glm::vec3 *norm = NULL); 
 
 	// Globals
 	bool Done = false;
@@ -64,7 +64,7 @@ public:
 	btCollisionDispatcher *Dispatcher; 
 	btBroadphaseInterface *BroadPhase; 
 	IrrlichtDevice *irrDevice;
-	IVideoDriver *irrDriver;
+	IVideoDriver *_drv;
 	ISceneManager *irrScene;
 	IGUIEnvironment *irrGUI;
 	ICameraSceneNode *mCamera; 
@@ -74,7 +74,7 @@ public:
 	ILogger *irrLog;
 	Copter *activeQuad; 
 	list<btRigidBody *> Objects;
-	double mRCThrottle, mRCYaw, mRCPitch, mRCRoll; 
+	double mRCThrottle, mRCYaw, mRCPitch, mRCRoll, mRCAux1, mRCAux2; 
 	float _spin; 
 	float _angle; 
 	uint8_t _mode; 
@@ -83,10 +83,17 @@ public:
 	bool _key_down[KEY_KEY_CODES_COUNT]; 
 
 private: 
+	void initSharedMemory(); 
 	void handleInput(double dt); 
+
+	void scanRange(void); 
+	void renderRange(void); 
+
 	bool _calibration; 
 	uint32_t _sent_count; 
 	
+	float _range_scan[6]; 
+
 	// shared memory stuff
 	char *_shmout; char *_shmin; 
 };

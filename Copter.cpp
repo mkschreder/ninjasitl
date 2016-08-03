@@ -180,7 +180,7 @@ Copter::Copter(Application *app){
 	//Node->setScale(vector3df(1, 0.1, 1));
 	//Node->setMaterialFlag(EMF_LIGHTING, 1);
 	//Node->setMaterialFlag(EMF_NORMALIZE_NORMALS, true);
-	Node->setMaterialTexture(0, mApp->irrDriver->getTexture("rust0.jpg"));
+	Node->setMaterialTexture(0, mApp->_drv->getTexture("rust0.jpg"));
 	mNode = Node;
 
 	// add motor cubes	
@@ -197,7 +197,7 @@ Copter::Copter(Application *app){
 		pn->setScale(vector3df(0.5, 1.0, 0.5));
 		pn->setMaterialFlag(EMF_LIGHTING, 1);
 		pn->setMaterialFlag(EMF_NORMALIZE_NORMALS, true);
-		pn->setMaterialTexture(0, mApp->irrDriver->getTexture("rust0.jpg"));
+		pn->setMaterialTexture(0, mApp->_drv->getTexture("rust0.jpg"));
 		Node->addChild(pn); 
 	}
 	*/
@@ -230,7 +230,7 @@ Copter::Copter(Application *app){
 	// Store a pointer to the irrlicht node so we can update it later
 	mBody->setUserPointer((void *)(Node));
 
-	mBody->setDamping(0.5, 0.8); 
+	mBody->setDamping(0.05, 0.1); 
 
 	// Add it to the world
 	mApp->World->addRigidBody(mBody);
@@ -350,9 +350,9 @@ void Copter::render(irr::video::IVideoDriver *drv){
 	glm::vec3 acc = rot * _accel;  
 	glm::vec3 mag = (rot * _mag) * 0.001f;  
 	glm::vec3 vel = getVelocity(); 
-	glm::vec3 ax = rot * glm::vec3(1.0, 0.0, 0.0); 
-	glm::vec3 ay = rot * glm::vec3(0.0, 1.0, 0.0); 
-	glm::vec3 az = rot * glm::vec3(0.0, 0.0, 1.0); 
+	glm::vec3 ax = rot * glm::vec3(0.1, 0.0, 0.0); 
+	glm::vec3 ay = rot * glm::vec3(0.0, 0.1, 0.0); 
+	glm::vec3 az = rot * glm::vec3(0.0, 0.0, 0.1); 
 
 	drv->setTransform(irr::video::ETS_WORLD, irr::core::IdentityMatrix);
 
@@ -361,12 +361,13 @@ void Copter::render(irr::video::IVideoDriver *drv){
 	drv->setMaterial(m);
 	
 	glm::vec3 hit, norm; 
+	/*
 	if(mApp->clipRay(pos, pos + rot * glm::vec3(100.0, 0, 0.0), &hit, &norm)){
 		drv->draw3DBox(aabbox3df(vector3df(hit.x - 0.1, hit.y - 0.1, hit.z - 0.1), vector3df(hit.x + 0.1, hit.y + 0.1, hit.z + 0.1)), SColor(255, 255, 0, 0)); 
 		drv->draw3DLine(vector3df(pos.x, pos.y, pos.z),
 			vector3df(hit.x, hit.y, hit.z), 
 			SColor( 255, 255, 0, 0 ));
-	}
+	}*/
 
 	drv->draw3DLine(vector3df(pos.x, pos.y, pos.z),
 		vector3df(pos.x + ax.x, pos.y + ax.y, pos.z + ax.z), 
@@ -411,7 +412,7 @@ void Copter::render(irr::video::IVideoDriver *drv){
 		float th = _motors[c].thrust; 
 		glm::vec3 p = rot * _motors[c].pos + pos; 
 		glm::vec3 f = rot * glm::vec3(0, 1.0, 0) * th; 
-		glm::vec3 a = rot * _motors[c].torque * th * 0.2f; 
+		glm::vec3 a = rot * _motors[c].torque * th * 0.4f; 
 		
 		// draw direction of thrust
 		drv->draw3DLine(vector3df(p.x, p.y, p.z),
@@ -515,7 +516,7 @@ void Copter::update(float dt){
 			//printf("%f ", th); 
 			glm::vec3 p = rot * _motors[c].pos;
 			glm::vec3 f = rot * glm::vec3(0, 1.0, 0) * th; 
-			glm::vec3 a = rot * _motors[c].torque * th * 0.2f; 
+			glm::vec3 a = rot * _motors[c].torque * th * 0.4f; 
 			
 			mBody->applyForce(btVector3(f.x, f.y, f.z), btVector3(p.x, p.y, p.z)); 
 			mBody->applyForce(btVector3(a.x, a.y, a.z), btVector3(p.x, p.y, p.z)); 

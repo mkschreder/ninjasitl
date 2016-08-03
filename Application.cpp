@@ -48,17 +48,20 @@ struct client_packet {
 	float rcin[8]; 
 	int32_t loc[3]; 
 	float mag[3]; 
+	float range[6]; 
 }; 
 
 static int paused = 0; 
-Application::Application():
+Application::Application()
 //	sock(true){
 {
 	mRCThrottle = 0; 
 	mRCPitch = 0.5; 
 	mRCYaw = 0.5; 
 	mRCRoll = 0.5; 
-	
+	mRCAux1 = 0.2; 
+	mRCAux2 = 0.2; 
+
 	memset(_key_down, 0, sizeof(_key_down)); 
 
 	_spin = 0; 
@@ -68,7 +71,7 @@ Application::Application():
 	irrGUI = irrDevice->getGUIEnvironment();
 	irrTimer = irrDevice->getTimer();
 	irrScene = irrDevice->getSceneManager();
-	irrDriver = irrDevice->getVideoDriver();
+	_drv = irrDevice->getVideoDriver();
 
 	irrDevice->getCursorControl()->setVisible(0);
 
@@ -109,8 +112,8 @@ Application::Application():
 	//Camera->setTarget(vector3df(1, 0, 0));
 	
 	// Preload textures
-	irrDriver->getTexture("ice0.jpg");
-	irrDriver->getTexture("rust0.jpg");
+	_drv->getTexture("ice0.jpg");
+	_drv->getTexture("rust0.jpg");
 
 	// Create the initial scene
 	irrScene->addLightSceneNode(0, core::vector3df(2, 5, -2), SColorf(4, 4, 4, 1));
@@ -124,14 +127,49 @@ Application::Application():
 
 	//sock.bind("127.0.0.1", 9002); 
 	//sock.set_blocking(false); 
+	initSharedMemory(); 
+}
 
-	int out = shmget(9005, sizeof(struct client_packet), IPC_CREAT | 0666); 
-	if(out < 0) perror("shmget"); 
-	int in = shmget(9003, sizeof(struct server_packet), IPC_CREAT | 0666); 
-	if(in < 0) perror("shmat"); 	
+void Application::initSharedMemory(){
+	int out = shmget(9005, 0, 0666); 
+	int in = shmget(9003, 0, 0666); 
+	
+	struct shmid_ds stat; 
+	// delete existing ones
+	if(out >= 0) { 
+		if(shmctl(out, IPC_STAT, &stat) != -1 && stat.shm_segsz != sizeof(client_packet)){ 
+			printf("Deleting 'out' shared segment because size does not match!\n"); 
+			shmctl(out, IPC_RMID, NULL); 
+		}
+	}
+	if(in >= 0) {
+		if(shmctl(in, IPC_STAT, &stat) != -1 && stat.shm_segsz != sizeof(server_packet)){ 
+			printf("Deleting 'in' shared segment because size does not match!\n"); 
+			shmctl(in, IPC_RMID, NULL); 
+		}
+	}
+
+	out = shmget(9005, sizeof(struct client_packet), IPC_CREAT | 0666); 
+	in = shmget(9003, sizeof(struct server_packet), IPC_CREAT | 0666); 
+	
+	if(out < 0 || in < 0) {
+		perror("shmget"); 
+		printf("Could not get shared memory segment for communication with autopilot! Exiting..\n"); 
+		exit(1); 
+	}
 
 	_shmout = (char*)shmat(out, NULL, 0); 
 	_shmin = (char*)shmat(in, NULL, 0); 
+
+	if(_shmout == 0 || _shmin == 0){
+		printf("Could not attach shared memory segment for communicaiton with autopilot!\n"); 
+		exit(1); 
+	}
+
+	// clear the input memory
+	memset(_shmin, 0, sizeof(server_packet)); 
+
+	printf("Shared memory initialized.\n");
 }
 
 Application::~Application(){
@@ -157,7 +195,8 @@ bool Application::clipRay(const glm::vec3 &_start, const glm::vec3 &_end, glm::v
 	if(node){
 		end->x = isect.X; end->y = isect.Y, end->z = isect.Z; 
 		return true; 
-	}
+	} 
+	*end = _end; 
 	return false; 
 	/*
 	// bullet collision system
@@ -223,10 +262,58 @@ void Application::handleInput(double dt){
 		mRCRoll = 0.5; 
 	}	
 
+	if(_key_down[KEY_KEY_I]){
+		mRCAux1 += dt * 0.2; 	
+	} else if(_key_down[KEY_KEY_K]){
+		mRCAux1 -= dt * 0.2; 
+	} 
+
+	if(_key_down[KEY_KEY_J]){
+		mRCAux2 += dt * 0.2; 	
+	} else if(_key_down[KEY_KEY_L]){
+		mRCAux2 -= dt * 0.2; 
+	} 
+
 	if(mRCThrottle > 1.0f) mRCThrottle = 1.0f; if(mRCThrottle < 0.0f) mRCThrottle = 0.0f; 
 	if(mRCYaw > 1.0f) mRCYaw = 1.0f; if(mRCYaw < 0.0f) mRCYaw = 0.0f; 
 	if(mRCPitch > 1.0f) mRCPitch = 1.0f; if(mRCPitch < 0.0f) mRCPitch = 0.0f; 
 	if(mRCRoll > 1.0f) mRCRoll = 1.0f; if(mRCRoll < 0.0f) mRCRoll = 0.0f; 
+	if(mRCAux1 > 1.0f) mRCAux1 = 1.0f; if(mRCAux1 < 0.0f) mRCAux1 = 0.0f; 
+	if(mRCAux2 > 1.0f) mRCAux2 = 1.0f; if(mRCAux2 < 0.0f) mRCAux2 = 0.0f; 
+}
+
+static const glm::vec3 dir[6] = {
+	glm::vec3(0, 0, -1), 
+	glm::vec3(0, 0, 1),
+	glm::vec3(-1, 0, 0),
+	glm::vec3(1, 0, 0),
+	glm::vec3(0, -1, 0),
+	glm::vec3(0, 1, 0)
+}; 
+
+void Application::renderRange(){
+	glm::vec3 pos = activeQuad->getPosition(); 
+	glm::quat rot = activeQuad->getRotation(); 
+	
+	for(int c = 0; c < 6; c++){
+		glm::vec3 hit = pos + rot * dir[c] * _range_scan[c]; 
+
+		_drv->draw3DBox(aabbox3df(vector3df(hit.x - 0.1, hit.y - 0.1, hit.z - 0.1), vector3df(hit.x + 0.1, hit.y + 0.1, hit.z + 0.1)), SColor(255, 255, 0, 0)); 
+		_drv->draw3DLine(vector3df(pos.x, pos.y, pos.z),
+			vector3df(hit.x, hit.y, hit.z), 
+			SColor( 255, 255, 0, 0 ));
+	}
+}
+
+void Application::scanRange(){
+	glm::vec3 pos = activeQuad->getPosition(); 
+	glm::quat rot = activeQuad->getRotation(); 
+	
+	for(int c = 0; c < 6; c++){
+		glm::vec3 end; 
+		clipRay(pos, pos + rot * dir[c] * 2.0f, &end); 
+		_range_scan[c] = glm::length(end - pos); 	
+	}
 }
 
 void Application::updateCamera(){
@@ -265,20 +352,22 @@ void Application::run(){
 		//updatePhysics(0.018f * 0.5);
 		updatePhysics(dt);
 		activeQuad->update(dt);
+		scanRange(); 
 		updateNetwork(dt); 
 		updateCamera(); 
 		handleInput(dt); 
 	}
 	
-	irrDriver->beginScene(true, true, SColor(255, 20, 0, 0));
+	_drv->beginScene(true, true, SColor(255, 20, 0, 0));
 	
 	irrScene->drawAll();
 	
 	// debug
-	activeQuad->render(irrDriver); 
-	
+	activeQuad->render(_drv); 
+	renderRange(); 
+
 	irrGUI->drawAll();
-	irrDriver->endScene();
+	_drv->endScene();
 	irrDevice->run();
 }
 
@@ -408,7 +497,7 @@ btRigidBody *Application::CreateBox(const btVector3 &TPosition, const vector3df 
 	Node->setScale(TScale);
 	Node->setMaterialFlag(EMF_LIGHTING, 1);
 	Node->setMaterialFlag(EMF_NORMALIZE_NORMALS, true);
-	Node->setMaterialTexture(0, irrDriver->getTexture(texture));
+	Node->setMaterialTexture(0, _drv->getTexture(texture));
 
 	// Set the initial position of the object
 	btTransform Transform; 
@@ -464,98 +553,77 @@ void Application::updateNetwork(double dt){
 
 	//if(sock.recv(&pkt, sizeof(pkt), 1) == sizeof(pkt)){
 	memcpy(&pkt, _shmin, sizeof(server_packet)); 
-		float roll = pkt.euler[0]; 
-		float pitch = pkt.euler[1]; 
-		float yaw = pkt.euler[2]; 
+	float roll = pkt.euler[0]; 
+	float pitch = pkt.euler[1]; 
+	float yaw = pkt.euler[2]; 
 
-		_mode = pkt.mode; 
-		if(pkt.mode == MODE_SERVER_SIM){
-			activeQuad->setSimulationOn(false); 
-			activeQuad->setPosition(glm::vec3(pkt.pos[1], -pkt.pos[2], pkt.pos[0])); 
-			// yaw = y, pitch = x, roll = z; 
-			glm::quat rr(cos(-roll / 2), 0, 0, sin(-roll / 2));  
-			glm::quat rp(cos(-pitch / 2), sin(-pitch / 2), 0, 0);  
-			glm::quat ry(cos(yaw / 2), 0, sin(yaw / 2), 0);  
+	_mode = pkt.mode; 
+	if(pkt.mode == MODE_SERVER_SIM){
+		activeQuad->setSimulationOn(false); 
+		activeQuad->setPosition(glm::vec3(pkt.pos[1], -pkt.pos[2], pkt.pos[0])); 
+		// yaw = y, pitch = x, roll = z; 
+		glm::quat rr(cos(-roll / 2), 0, 0, sin(-roll / 2));  
+		glm::quat rp(cos(-pitch / 2), sin(-pitch / 2), 0, 0);  
+		glm::quat ry(cos(yaw / 2), 0, sin(yaw / 2), 0);  
 
-			activeQuad->setRotation(ry * rp * rr); 
-			activeQuad->setLinearVelocity(glm::vec3(pkt.vel[1], -pkt.vel[2], pkt.vel[0])); 
-			activeQuad->setAccelerometer(glm::vec3(pkt.acc[1], -pkt.acc[2], pkt.acc[0])); 
-			activeQuad->setMagneticField(glm::vec3(pkt.mag[1], -pkt.mag[2], pkt.mag[0])); 
-		
-			//glm::vec3 lm = activeQuad->calcMagFieldIntensity(); 
-			//printf("mas(%f %f %f)\n", pkt.mag[1], -pkt.mag[2], pkt.mag[0]); 
-			//printf("mal(%f %f %f)\n", lm.x, lm.y, lm.z);  
-			//printf("pos(%f %f %f) vel(%f %f %f)\n", pkt.pos[0], pkt.pos[1], pkt.pos[2], pkt.vel[0], pkt.vel[1], pkt.vel[2]); 
-		} else if(pkt.mode == MODE_CLIENT_SIM){
-			activeQuad->setSimulationOn(true); 
-		}
+		activeQuad->setRotation(ry * rp * rr); 
+		activeQuad->setLinearVelocity(glm::vec3(pkt.vel[1], -pkt.vel[2], pkt.vel[0])); 
+		activeQuad->setAccelerometer(glm::vec3(pkt.acc[1], -pkt.acc[2], pkt.acc[0])); 
+		activeQuad->setMagneticField(glm::vec3(pkt.mag[1], -pkt.mag[2], pkt.mag[0])); 
+	
+		//glm::vec3 lm = activeQuad->calcMagFieldIntensity(); 
+		//printf("mas(%f %f %f)\n", pkt.mag[1], -pkt.mag[2], pkt.mag[0]); 
+		//printf("mal(%f %f %f)\n", lm.x, lm.y, lm.z);  
+		//printf("pos(%f %f %f) vel(%f %f %f)\n", pkt.pos[0], pkt.pos[1], pkt.pos[2], pkt.vel[0], pkt.vel[1], pkt.vel[2]); 
+	} else if(pkt.mode == MODE_CLIENT_SIM){
+		activeQuad->setSimulationOn(true); 
+	}
 
-		//printf("servo(%d %d %d %d) rpy(%f %f %f)\n", pkt.servo[0], pkt.servo[1], pkt.servo[2], pkt.servo[3], roll, pitch, yaw); 
-		for(unsigned c = 0; c < 8; c++){
-			activeQuad->setOutputThrust(c, (pkt.servo[c] - 1000) / 1000.0f); 
-		}
-	//}
-		struct client_packet state; 
-		memset(&state, 0, sizeof(state)); 
+	//printf("servo(%d %d %d %d) rpy(%f %f %f)\n", pkt.servo[0], pkt.servo[1], pkt.servo[2], pkt.servo[3], roll, pitch, yaw); 
+	for(unsigned c = 0; c < 8; c++){
+		activeQuad->setOutputThrust(c, (pkt.servo[c] - 1000) / 1000.0f); 
+	}
 
-		// create a 3d world to ned frame rotation
-		glm::quat r0(cos(glm::radians(-90.0 / 2)), sin(glm::radians(-90.0 / 2)), 0, 0); 
-		glm::quat r1(cos(glm::radians(90.0 / 2)), 0, sin(glm::radians(90.0 / 2)), 0); 
-		glm::quat r2(cos(glm::radians(-90.0 / 2)), 0, 0, sin(glm::radians(-90.0 / 2))); 
-		glm::quat r2ef = r2 * r1; 
+	// send our state
+	struct client_packet state; 
+	memset(&state, 0, sizeof(state)); 
 
-		glm::vec3 pos = activeQuad->getPosition(); 
-		glm::quat rot = activeQuad->getRotation(); 
-		glm::vec3 accel = activeQuad->getAccel(); 
-		glm::ivec3 loc = activeQuad->getLocation(); 
-		glm::vec3 mag = activeQuad->getMagneticField();
-		glm::vec3 vel = activeQuad->getVelocity(); 
-		glm::vec3 gyro = activeQuad->getGyro(); 
-		
-		if(paused){
-			gyro = glm::vec3(0, 0, 0); 
-			//glm::quat r(cos(glm::radians(45.0 / 2)), sin(glm::radians(45.0 / 2)), 0, 0); 
-			//accel = r * glm::vec3(0, 0, -9.82); 
-		}
-		
-		glm::vec3 euler = glm::eulerAngles(rot);
-		glm::vec3 bx = rot * glm::vec3(1, 0, 0); 
-		glm::vec3 by = rot * glm::vec3(0, 1, 0); 
-		glm::vec3 bz = rot * glm::vec3(0, 0, 1); 
-		glm::vec3 px = bx - glm::vec3(0, bx.y, 0); 
-		glm::vec3 pz = bz - glm::vec3(0, bz.y, 0); 
+	glm::vec3 pos = activeQuad->getPosition(); 
+	glm::quat rot = activeQuad->getRotation(); 
+	glm::vec3 accel = activeQuad->getAccel(); 
+	glm::ivec3 loc = activeQuad->getLocation(); 
+	glm::vec3 mag = activeQuad->getMagneticField();
+	glm::vec3 vel = activeQuad->getVelocity(); 
+	glm::vec3 gyro = activeQuad->getGyro(); 
+	glm::vec3 euler = glm::eulerAngles(rot); 
 
-		//float p = glm::orientedAngle(px, bx, glm::vec3(0, 1, 0));  
-		//float r = glm::orientedAngle(glm::vec3(0, 0, 1), bz, glm::vec3(0, 1, 0));  
-		//float y = 0; 
-		//printf("euler: %f %f %f %f %f %f\n", glm::degrees(euler.z), glm::degrees(euler.x), glm::degrees(euler.y), glm::degrees(p), glm::degrees(r), glm::degrees(y)); 
+	state.id = _sent_count++; 
+	state.euler[0] = euler.z; state.euler[1] = euler.x; state.euler[2] = euler.y; 
+	state.gyro[0] = -gyro.z; state.gyro[1] = -gyro.x; state.gyro[2] = gyro.y; 
+	state.accel[0] = accel.z; state.accel[1] = accel.x; state.accel[2] = -accel.y; 
+	//state.accel[0] = 0; state.accel[1] = 0; state.accel[2] = -9.82; 
+	state.pos[0] = pos.z; state.pos[1] = pos.x; state.pos[2] = -pos.y; 
+	state.loc[0] = loc.z; state.loc[1] = loc.x; state.loc[2] = loc.y; 
+	state.mag[0] = mag.z; state.mag[1] = mag.x; state.mag[2] = -mag.y; 
+	state.vel[0] = vel.z; state.vel[1] = vel.x; state.vel[2] = -vel.y; 
+	
+	state.rcin[0] = mRCRoll; 
+	state.rcin[1] = mRCPitch; 
+	state.rcin[2] = mRCThrottle; 
+	state.rcin[3] = mRCYaw; 
+	state.rcin[4] = mRCAux1; 
+	state.rcin[5] = mRCAux2; 
 
-		//state.euler[0] = r; state.euler[1] = -p; state.euler[2] = -y; 
-		state.id = _sent_count++; 
-		state.euler[0] = euler.z; state.euler[1] = euler.x; state.euler[2] = euler.y; 
-		state.gyro[0] = -gyro.z; state.gyro[1] = -gyro.x; state.gyro[2] = gyro.y; 
-		state.accel[0] = accel.z; state.accel[1] = accel.x; state.accel[2] = -accel.y; 
-		//state.accel[0] = 0; state.accel[1] = 0; state.accel[2] = -9.82; 
-		state.pos[0] = pos.z; state.pos[1] = pos.x; state.pos[2] = -pos.y; 
-		state.loc[0] = loc.z; state.loc[1] = loc.x; state.loc[2] = loc.y; 
-		state.mag[0] = mag.z; state.mag[1] = mag.x; state.mag[2] = -mag.y; 
-		state.vel[0] = vel.z; state.vel[1] = vel.x; state.vel[2] = -vel.y; 
-		
-		state.rcin[0] = mRCRoll; 
-		state.rcin[1] = mRCPitch; 
-		state.rcin[2] = mRCThrottle; 
-		state.rcin[3] = mRCYaw; 
+	memcpy(state.range, _range_scan, min(sizeof(state.range), sizeof(_range_scan))); 
 
-		printf("sending: acc(%f %f %f) gyr(%f %f %f) mag(%f %f %f) vel(%f %f %f) loc(%d %d %d) rc(%f %f %f %f)\n", 
-			state.accel[0], state.accel[1], state.accel[2],
-			state.gyro[0], state.gyro[1], state.gyro[2],
-			state.mag[0], state.mag[1], state.mag[2],
-			state.vel[0], state.vel[1], state.vel[2], 
-			state.loc[0], state.loc[1], state.loc[2],
-			state.rcin[0], state.rcin[1], state.rcin[2], state.rcin[3]); 
-		//int ret = sock.sendto(&state, sizeof(state), "127.0.0.1", 9005); 
-		memcpy(_shmout, &state, sizeof(state)); 
-	//}	
+	printf("sending: acc(%f %f %f) gyr(%f %f %f) mag(%f %f %f) vel(%f %f %f) loc(%d %d %d) rc(%f %f %f %f)\n", 
+		state.accel[0], state.accel[1], state.accel[2],
+		state.gyro[0], state.gyro[1], state.gyro[2],
+		state.mag[0], state.mag[1], state.mag[2],
+		state.vel[0], state.vel[1], state.vel[2], 
+		state.loc[0], state.loc[1], state.loc[2],
+		state.rcin[0], state.rcin[1], state.rcin[2], state.rcin[3]); 
+	memcpy(_shmout, &state, sizeof(state)); 
 }
 
 // Removes all objects from the world
