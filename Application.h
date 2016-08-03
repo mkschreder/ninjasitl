@@ -83,6 +83,12 @@ public:
 	bool _key_down[KEY_KEY_CODES_COUNT]; 
 
 private: 
+	enum {
+		CAMERA_THIRD_PERSON, 
+		CAMERA_FIRST_PERSON,
+		CAMERA_MODE_COUNT
+	}; 
+
 	void initSharedMemory(); 
 	void handleInput(double dt); 
 
@@ -93,6 +99,8 @@ private:
 	uint32_t _sent_count; 
 	
 	float _range_scan[6]; 
+	
+	int _camera_mode; 
 
 	// shared memory stuff
 	char *_shmout; char *_shmin; 

@@ -64,6 +64,8 @@ Application::Application()
 
 	memset(_key_down, 0, sizeof(_key_down)); 
 
+	_camera_mode = CAMERA_THIRD_PERSON; 
+
 	_spin = 0; 
 	_angle = 0; 
 
@@ -321,22 +323,27 @@ void Application::updateCamera(){
 	glm::vec3 pos = activeQuad->getPosition(); 
 	glm::vec3 e = glm::eulerAngles(rot); 
 
-	glm::vec3 cpos = pos + rot * glm::vec3(0, 0, -2); 
-	cpos.y = pos.y + 1; 
-	glm::vec3 cnorm; 
-	clipRay(pos, cpos, &cpos, &cnorm); 
-
-	mCamera->setPosition(vector3df(cpos.x, cpos.y, cpos.z)); 
-	mCamera->setTarget(vector3df(pos.x, pos.y, pos.z));
-	/*
-	glm::vec3 cp = pos + rot * glm::vec3(0, 0, 0.5); 
-	glm::vec3 ct = pos + rot * glm::vec3(0, 0, 1.0); 
-	glm::vec3 cu = rot * glm::vec3(0, 1.0, 0.0); 
-	mCamera->setPosition(vector3df(cp.x, cp.y, cp.z)); 
-	mCamera->setTarget(vector3df(ct.x, ct.y, ct.z));
-	mCamera->setUpVector(vector3df(cu.x, cu.y, cu.z));
-	mCamera->setRotation(vector3df(glm::degrees(e.x), glm::degrees(e.y), glm::degrees(e.z))); 
-	*/
+	switch(_camera_mode){
+		case CAMERA_THIRD_PERSON: {
+			glm::vec3 cpos = pos + rot * glm::vec3(0, 0, -2); 
+			cpos.y = pos.y + 1; 
+			glm::vec3 cnorm; 
+			clipRay(pos, cpos, &cpos, &cnorm); 
+			mCamera->setPosition(vector3df(cpos.x, cpos.y, cpos.z)); 
+			mCamera->setTarget(vector3df(pos.x, pos.y, pos.z));
+		} break; 
+		case CAMERA_FIRST_PERSON: {
+			glm::vec3 cp = pos + rot * glm::vec3(0, 0, 0.5); 
+			glm::vec3 ct = pos + rot * glm::vec3(0, 0, 1.0); 
+			glm::vec3 cu = rot * glm::vec3(0, 1.0, 0.0); 
+			mCamera->setPosition(vector3df(cp.x, cp.y, cp.z)); 
+			mCamera->setTarget(vector3df(ct.x, ct.y, ct.z));
+			mCamera->setUpVector(vector3df(cu.x, cu.y, cu.z));
+			mCamera->setRotation(vector3df(glm::degrees(e.x), glm::degrees(e.y), glm::degrees(e.z))); 
+		} break; 
+		default: 
+			break; 
+	}
 }
 
 void Application::run(){
@@ -390,6 +397,9 @@ bool Application::OnEvent(const SEvent &ev) {
 				break; 
 			case KEY_KEY_L: 
 				_spin -= 0.5; 
+				break; 
+			case KEY_KEY_C: 
+				_camera_mode = (_camera_mode + 1) % CAMERA_MODE_COUNT; 
 				break; 
 			case KEY_KEY_6: {
 				static int id = 0; 
