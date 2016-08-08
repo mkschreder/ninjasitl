@@ -17,8 +17,6 @@
 
 #pragma once
 
-#define GLM_FORCE_RADIANS
-
 #include <irrlicht.h>
 #include <btBulletCollisionCommon.h>
 #include <btBulletDynamicsCommon.h>
@@ -56,6 +54,10 @@ public:
 	
 	bool clipRay(const glm::vec3 &_start, const glm::vec3 &_end, glm::vec3 *end, glm::vec3 *norm = NULL); 
 
+	irr::video::IVideoDriver *getVideoDriver(); 
+	irr::scene::ISceneManager *getSceneManager(); 
+	btDiscreteDynamicsWorld *getDynamicsWorld();
+
 	// Globals
 	bool Done = false;
 	btDiscreteDynamicsWorld *World;
@@ -65,7 +67,7 @@ public:
 	btBroadphaseInterface *BroadPhase; 
 	IrrlichtDevice *irrDevice;
 	IVideoDriver *_drv;
-	ISceneManager *irrScene;
+	ISceneManager *_scene;
 	IGUIEnvironment *irrGUI;
 	ICameraSceneNode *mCamera; 
 	//IGUIStaticText* irrStatusText; 
@@ -94,6 +96,9 @@ private:
 
 	void scanRange(void); 
 	void renderRange(void); 
+
+	glm::vec3 get_player_start(IQ3LevelMesh *level); 
+	void add_triangle_mesh(IMesh *mesh, float scale); 
 
 	bool _calibration; 
 	uint32_t _sent_count; 

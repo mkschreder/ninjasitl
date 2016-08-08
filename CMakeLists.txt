@@ -14,7 +14,7 @@ include_directories("/usr/include/bullet" "irrlicht/include" "../martink" "../ma
 
 link_directories("../irrlicht/source/Irrlicht/")
 
-set (CMAKE_CXX_FLAGS "-Wall -std=c++11 -pipe -fexceptions -fno-rtti -fstrict-aliasing -g -DNDEBUG")
+set (CMAKE_CXX_FLAGS "-Wall -std=c++11 -pipe -fexceptions -fno-rtti -fstrict-aliasing -g -DNDEBUG -DGLM_FORCE_RADIANS")
 
 # Executable
 #add_library(quadcopter ${Project_SOURCES} ${Project_HEADERS})

@@ -19,8 +19,6 @@
 
 #include <irrlicht.h>
 
-#define GLM_FORCE_RADIANS
-
 #include <glm/glm.hpp>
 #include <glm/vec3.hpp>
 #include <glm/mat3x3.hpp>
@@ -29,70 +27,42 @@
 #include <btBulletCollisionCommon.h>
 #include <btBulletDynamicsCommon.h>
 
-//#include <FlightController.hpp>
+#include <vector>
+
+#include "Aircraft.h"
+#include "Motor.h"
 
 using namespace glm; 
 
 class Application;
 
-class Copter {
+class Copter : public Aircraft {
 public:
-	Copter(Application *app);
+	typedef enum {
+		QUAD_PLUS, 
+		QUAD_X
+	} frame_type_t; 
 
-	virtual void update(float dt);
-	virtual void render(irr::video::IVideoDriver *drv);
+	Copter(Application *app, Copter::frame_type_t frame_type);
+
+	virtual void updateForces(); 
+	virtual void render();
 	
 	void setOutputThrust(unsigned int id, float thrust); 
 
-	virtual irr::scene::ISceneNode *getSceneNode(){return mNode;}
-
-	glm::quat getRotation(); 
-	glm::vec3 getVelocity(); 
-	glm::vec3 getPosition(); 
-	glm::ivec3 getLocation(); 
-	glm::vec3 getMagneticField(); 
-	glm::vec3 getAccel(); 
-	glm::vec3 getGyro(); 
-	
-	void setPosition(const glm::vec3 &pos); 
-	void setRotation(const glm::quat &rot); 
-	void setAngularVelocity(const glm::vec3 &v); 
-	void setLinearVelocity(const glm::vec3 &v); 
-
-	// for forcing values in supervised mode
-	void setAccelerometer(const glm::vec3 &v); 
-	void setMagneticField(const glm::vec3 &v); 
+	void setFrameType(Copter::frame_type_t frame_type); 
 
 	void setSimulationOn(bool on); 
+protected: 
+	// for setup 
+	virtual btRigidBody *createFrameRigidBody(); 
+	virtual irr::scene::ISceneNode *createFrameSceneNode(); 
 
-	glm::vec3 calcMagFieldIntensity(); 
-	glm::vec3 calcAcceleration(); 
 private:
-	typedef enum {
-		MOTOR_CW = 0, 
-		MOTOR_CCW = 1
-	} motor_dir_t; 
-	struct motor {
-		glm::vec3 pos; 
-		motor_dir_t dir; 
-		float thrust; 
-		glm::vec3 torque; 
-	} _motors[8]; 
-	btRigidBody *mBody;
+	std::vector<Motor*> _motors; 
 	Application *mApp; 
 	
-	void updateLocation(); 
 	bool raytest(const glm::vec3 &_start, const glm::vec3 &dir, glm::vec3 &end, glm::vec3 &norm); 
 
-	irr::scene::ISceneNode *mNode;
-	irr::scene::ISceneNode *_hit_box; 
-	irr::scene::ICameraSceneNode *mCamera; 
-
-	glm::vec3 _velocity; 
-	glm::vec3 _linear_acceleration; 
-	glm::vec3 _accel; 
-	glm::vec3 _mag; 
-	glm::ivec3 _location; 
-	glm::ivec3 _home; 
 	bool _simulate; 
 };

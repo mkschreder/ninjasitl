@@ -51,6 +51,86 @@ struct client_packet {
 	float range[6]; 
 }; 
 
+glm::vec3 Application::get_player_start(IQ3LevelMesh *level){
+	quake3::tQ3EntityList &entityList = level->getEntityList();
+
+	quake3::IEntity search;
+	search.name = "info_player_deathmatch";
+
+	s32 index = entityList.binary_search(search);
+	if (index >= 0)
+	{
+		s32 notEndList;
+		do
+		{
+			const quake3::SVarGroup *group = entityList[index].getGroup(1);
+
+			u32 parsepos = 0;
+			const core::vector3df pos =
+				quake3::getAsVector3df(group->get("origin"), parsepos);
+
+			parsepos = 0;
+			const f32 angle = quake3::getAsFloat(group->get("angle"), parsepos);
+
+			core::vector3df target(0.f, 0.f, 1.f);
+			target.rotateXZBy(angle);
+
+			return glm::vec3(pos.X, pos.Y, pos.Z); 
+
+			//camera->setPosition(pos);
+			//camera->setTarget(pos + target);
+
+			++index;
+			notEndList = index == 2;
+		} while ( notEndList );
+	}
+	return glm::vec3(0, 0, 0); 
+}
+
+void Application::add_triangle_mesh(IMesh *mesh, float scale){
+	btTriangleMesh *trimesh = new btTriangleMesh();
+
+	for (unsigned int i = 0; i < mesh->getMeshBufferCount(); i++){
+		irr::scene::IMeshBuffer* mb = mesh->getMeshBuffer(i);
+	   
+		if (mb->getVertexType()==irr::video::EVT_STANDARD){
+			::printf("Standard vertex\n"); 
+		}
+		if (mb->getVertexType()==irr::video::EVT_2TCOORDS){
+			irr::video::S3DVertex2TCoords* mb_vertices=(irr::video::S3DVertex2TCoords*)mb->getVertices();
+			u16* mb_indices = mb->getIndices();
+			for (unsigned int j=0; j < mb->getIndexCount(); j += 3){
+				video::S3DVertex2TCoords *v0 = &mb_vertices[mb_indices[j]]; 
+				video::S3DVertex2TCoords *v1 = &mb_vertices[mb_indices[j+1]]; 
+				video::S3DVertex2TCoords *v2 = &mb_vertices[mb_indices[j+2]]; 
+				trimesh->addTriangle(
+					btVector3(v0->Pos.X, v0->Pos.Y, v0->Pos.Z) * scale, 
+					btVector3(v1->Pos.X, v1->Pos.Y, v1->Pos.Z) * scale, 
+					btVector3(v2->Pos.X, v2->Pos.Y, v2->Pos.Z) * scale
+				); 
+			}
+		}
+	}
+	btCollisionShape *shape = new btBvhTriangleMeshShape(trimesh, false);
+	
+	float mass = 0.0f; 
+	btTransform Transform; 
+	Transform.setIdentity(); 
+	Transform.setOrigin(btVector3(0, 0, 0)); 
+
+	btDefaultMotionState *mstate = new btDefaultMotionState(Transform);
+
+	// Add mass
+	btVector3 inertia;
+	shape->calculateLocalInertia(mass, inertia);
+
+	// Create the rigid body object
+	btRigidBody *body = new btRigidBody(mass, mstate, shape, inertia);
+
+	// Add it to the world
+	World->addRigidBody(body);
+}
+ 
 static int paused = 0; 
 Application::Application()
 //	sock(true){
@@ -72,28 +152,55 @@ Application::Application()
 	irrDevice = createDevice(video::EDT_OPENGL, dimension2d<u32>(640, 480), 32, false, false, false, this);
 	irrGUI = irrDevice->getGUIEnvironment();
 	irrTimer = irrDevice->getTimer();
-	irrScene = irrDevice->getSceneManager();
+	_scene = irrDevice->getSceneManager();
 	_drv = irrDevice->getVideoDriver();
-
+	_scene->setAmbientLight(video::SColorf(1.0f, 1.0f, 1.0f, 1.0f)); 
 	irrDevice->getCursorControl()->setVisible(0);
 
 	// load a map
 	irrDevice->getFileSystem()->addFileArchive("base");
-	irrDevice->getFileSystem()->addFileArchive("base/map-20kdm2.pk3");
-	scene::IAnimatedMesh* mesh = irrScene->getMesh("20kdm2.bsp");
-	scene::ISceneNode* node = 0;
+	irrDevice->getFileSystem()->addFileArchive("base/pak0.pk3");
+	//irrDevice->getFileSystem()->addFileArchive("base/map-20kdm2.pk3");
+	//irrDevice->getFileSystem()->addFileArchive("base/akutatourney3.pk3");
+	//irrDevice->getFileSystem()->addFileArchive("base/q3dmp29.pk3");
+	irrDevice->getFileSystem()->addFileArchive("base/trespass.pk3");
 
+	_scene->getParameters()->setAttribute(scene::ALLOW_ZWRITE_ON_TRANSPARENT, true); 
+
+	//scene::IQ3LevelMesh *mesh = (scene::IQ3LevelMesh*)_scene->getMesh("q3dmp29.bsp"); 
+	scene::IQ3LevelMesh *mesh = (scene::IQ3LevelMesh*)_scene->getMesh("trespass.bsp"); 
 	if(!mesh){
 		printf("could not load map mesh!\n"); 
 		exit(0); 
 	}
 
-	node = irrScene->addOctreeSceneNode(mesh->getMesh(0), 0, -1, 1024);
+	// the additional mesh can be quite huge and is unoptimized
+	scene::IMesh * const additional_mesh = mesh->getMesh(quake3::E_Q3_MESH_ITEMS);
 
+	scene::IMesh * const geom = mesh->getMesh(quake3::E_Q3_MESH_GEOMETRY); 
+	scene::ISceneNode *node = _scene->addOctreeSceneNode(geom, 0, -1, 4096);
+	
 	node->setScale(core::vector3df(0.1, 0.1, 0.1)); 
-	node->setPosition(core::vector3df(-130,-14.4,-124.9));
+	//node->setPosition(core::vector3df(-130,-14.4,-124.9));
 
-	ITriangleSelector *sel = irrScene->createOctreeTriangleSelector(mesh->getMesh(0), node, 128); 
+	for ( u32 i = 0; i!= additional_mesh->getMeshBufferCount(); ++i ){
+		const IMeshBuffer* meshBuffer = additional_mesh->getMeshBuffer(i);
+		const video::SMaterial& material = meshBuffer->getMaterial();
+
+		// The ShaderIndex is stored in the material parameter
+		const s32 shaderIndex = (s32) material.MaterialTypeParam2;
+
+		// the meshbuffer can be rendered without additional support, or it has no shader
+		const quake3::IShader *shader = mesh->getShader(shaderIndex);
+		if (!shader){
+			continue;
+		}
+
+		scene::ISceneNode *n = _scene->addQuake3SceneNode(meshBuffer, shader);
+		node->addChild(n); 
+
+	}
+	ITriangleSelector *sel = _scene->createOctreeTriangleSelector(geom, node, 128); 
 	node->setTriangleSelector(sel); 
 	sel->drop(); 
 
@@ -105,10 +212,13 @@ Application::Application()
 	World = new btDiscreteDynamicsWorld(Dispatcher, BroadPhase, Solver, CollisionConfiguration);
 	World->setGravity(btVector3(0, -9.82, 0)); 
 
+	add_triangle_mesh(additional_mesh, 0.1f); 
+	add_triangle_mesh(geom, 0.1f); 
+	glm::vec3 start = get_player_start(mesh) * 0.1f; 
 	// Add camera
-	//mCamera = irrScene->addCameraSceneNodeFPS(0, 100, 0.01);
-	mCamera = irrScene->addCameraSceneNode();
-	mCamera->setPosition(vector3df(0, 0, 0));
+	//mCamera = _scene->addCameraSceneNodeFPS(0, 100, 0.01);
+	mCamera = _scene->addCameraSceneNode();
+	mCamera->setPosition(vector3df(start.x, start.y, start.z));
 	mCamera->setRotation(vector3df(0, 0, 0)); 
 	//Camera->setUpVector(vector3df(0, 0, 1.0)); 
 	//Camera->setTarget(vector3df(1, 0, 0));
@@ -118,15 +228,20 @@ Application::Application()
 	_drv->getTexture("rust0.jpg");
 
 	// Create the initial scene
-	irrScene->addLightSceneNode(0, core::vector3df(2, 5, -2), SColorf(4, 4, 4, 1));
-	irrScene->addLightSceneNode(0, core::vector3df(2, -5, -2), SColorf(4, 4, 4, 1));
+	_scene->addLightSceneNode(0, core::vector3df(2, 5, -2), SColorf(4, 4, 4, 1));
+	_scene->addLightSceneNode(0, core::vector3df(2, -5, -2), SColorf(4, 4, 4, 1));
 	CreateStartScene();
 
 	// Main loop
 	TimeStamp = irrTimer->getTime();
 
-	activeQuad = new Copter(this);
+	activeQuad = new Copter(this, Copter::QUAD_X);
+	
+	activeQuad->setPosition(start + glm::vec3(0, 4, 0)); 
+	activeQuad->setHomeLocation(glm::vec3(149.165230, 584, -35.363261)); 
 
+	// platform
+	CreateBox(btVector3(start.x, start.y-3, start.z), vector3df(10.0f, 1.5f, 10.0f), 0.0f, "ice0.jpg");
 	//sock.bind("127.0.0.1", 9002); 
 	//sock.set_blocking(false); 
 	initSharedMemory(); 
@@ -185,8 +300,20 @@ Application::~Application(){
 	irrDevice->drop();
 }
 
+irr::video::IVideoDriver *Application::getVideoDriver(){
+	return _drv; 
+}
+
+irr::scene::ISceneManager *Application::getSceneManager(){
+	return _scene; 
+}
+
+btDiscreteDynamicsWorld *Application::getDynamicsWorld(){
+	return World; 
+}
+
 bool Application::clipRay(const glm::vec3 &_start, const glm::vec3 &_end, glm::vec3 *end, glm::vec3 *norm) {
-	ISceneCollisionManager *cm = irrScene->getSceneCollisionManager(); 
+	ISceneCollisionManager *cm = _scene->getSceneCollisionManager(); 
 	line3d<f32> ray; 
 	ray.start = vector3df(_start.x, _start.y, _start.z); 
 	ray.end = vector3df(_end.x, _end.y, _end.z); 
@@ -224,9 +351,9 @@ bool Application::clipRay(const glm::vec3 &_start, const glm::vec3 &_end, glm::v
 void Application::handleInput(double dt){
 	// Throttle
 	if(_key_down[KEY_KEY_W]){
-		mRCThrottle += dt * 0.3; 	
+		mRCThrottle += dt * 0.6; 	
 	} else if(_key_down[KEY_KEY_S]){
-		mRCThrottle -= dt * 0.3; 
+		mRCThrottle -= dt * 0.6; 
 	} else {
 		
 	}
@@ -245,10 +372,10 @@ void Application::handleInput(double dt){
 	// Pitch 
 	if(_key_down[KEY_UP]){
 		if(mRCPitch < 0.5) mRCPitch = 0.5; 
-		mRCPitch += dt * 0.2; 	
+		mRCPitch += dt * 0.4; 	
 	} else if(_key_down[KEY_DOWN]){
 		if(mRCPitch > 0.5) mRCPitch = 0.5; 
-		mRCPitch -= dt * 0.2; 
+		mRCPitch -= dt * 0.4; 
 	} else {
 		mRCPitch = 0.5; 
 	}	
@@ -256,10 +383,10 @@ void Application::handleInput(double dt){
 	// Roll 
 	if(_key_down[KEY_RIGHT]){
 		if(mRCRoll < 0.5) mRCRoll = 0.5; 
-		mRCRoll += dt * 0.2; 	
+		mRCRoll += dt * 0.4; 	
 	} else if(_key_down[KEY_LEFT]){
 		if(mRCRoll > 0.5) mRCRoll = 0.5; 
-		mRCRoll -= dt * 0.2; 
+		mRCRoll -= dt * 0.4; 
 	} else {
 		mRCRoll = 0.5; 
 	}	
@@ -299,11 +426,17 @@ void Application::renderRange(){
 	
 	for(int c = 0; c < 6; c++){
 		glm::vec3 hit = pos + rot * dir[c] * _range_scan[c]; 
+		SColor color; 
 
-		_drv->draw3DBox(aabbox3df(vector3df(hit.x - 0.1, hit.y - 0.1, hit.z - 0.1), vector3df(hit.x + 0.1, hit.y + 0.1, hit.z + 0.1)), SColor(255, 255, 0, 0)); 
+		if(_range_scan[c] < 9.99f)
+			color = SColor( 255, 0, 255, 0 ); 
+		else
+			color = SColor( 255, 255, 0, 0); 
+
+		_drv->draw3DBox(aabbox3df(vector3df(hit.x - 0.1, hit.y - 0.1, hit.z - 0.1), vector3df(hit.x + 0.1, hit.y + 0.1, hit.z + 0.1)), color); 
 		_drv->draw3DLine(vector3df(pos.x, pos.y, pos.z),
 			vector3df(hit.x, hit.y, hit.z), 
-			SColor( 255, 255, 0, 0 ));
+			color);
 	}
 }
 
@@ -313,7 +446,7 @@ void Application::scanRange(){
 	
 	for(int c = 0; c < 6; c++){
 		glm::vec3 end; 
-		clipRay(pos, pos + rot * dir[c] * 2.0f, &end); 
+		clipRay(pos, pos + rot * dir[c] * 10.0f, &end); 
 		_range_scan[c] = glm::length(end - pos); 	
 	}
 }
@@ -348,29 +481,34 @@ void Application::updateCamera(){
 
 void Application::run(){
 	long long time = irrTimer->getTime(); 
-	double dt = (time - TimeStamp) * 0.001f;
+	long long dti = (time - TimeStamp); 
+	double dt = dti * 0.001f;
 	TimeStamp = time; 
 
-	_angle += _spin * dt; 
-	glm::quat q(cos(glm::radians(_angle / 2)), 0, sin(glm::radians(_angle / 2)), 0); 
-	//activeQuad->setRotation(q); 
-
 	if(!paused){
-		//updatePhysics(0.018f * 0.5);
-		updatePhysics(dt);
-		activeQuad->update(dt);
+		activeQuad->updateForces(); 
+		World->stepSimulation(dt, 400, 0.001);
+
 		scanRange(); 
 		updateNetwork(dt); 
 		updateCamera(); 
 		handleInput(dt); 
+
+		activeQuad->update(dt);
+
+		// Relay the object's orientation to irrlicht
+		for(list<btRigidBody *>::Iterator Iterator = Objects.begin(); Iterator != Objects.end(); ++Iterator) {
+			UpdateRender(*Iterator);
+		}	
+
 	}
 	
 	_drv->beginScene(true, true, SColor(255, 20, 0, 0));
 	
-	irrScene->drawAll();
+	_scene->drawAll();
 	
 	// debug
-	activeQuad->render(_drv); 
+	activeQuad->render(); 
 	renderRange(); 
 
 	irrGUI->drawAll();
@@ -437,11 +575,11 @@ bool Application::OnEvent(const SEvent &ev) {
 				}
 				_calibration = !_calibration; 
 				if(!_calibration){
-					activeQuad->setSimulationOn(true); 
+					//activeQuad->setSimulationOn(true); 
 					World->setGravity(btVector3(0, -9.82, 0)); 
 					printf("Left calibration mode!\n"); 
 				} else {
-					activeQuad->setSimulationOn(false); 
+					//activeQuad->setSimulationOn(false); 
 					World->setGravity(btVector3(0, 0, 0)); 
 					printf("Entered calibration mode\n");
 				}
@@ -484,12 +622,6 @@ bool Application::OnEvent(const SEvent &ev) {
 // Runs the physics simulation.
 // - TDeltaTime tells the simulation how much time has passed since the last frame so the simulation can run independently of the frame rate.
 void Application::updatePhysics(float dt) {
-	World->stepSimulation(dt, 60);
-
-	// Relay the object's orientation to irrlicht
-	for(list<btRigidBody *>::Iterator Iterator = Objects.begin(); Iterator != Objects.end(); ++Iterator) {
-		UpdateRender(*Iterator);
-	}	
 }
 
 // Creates a base box
@@ -503,7 +635,7 @@ void Application::CreateStartScene() {
 // Create a box rigid body
 btRigidBody *Application::CreateBox(const btVector3 &TPosition, const vector3df &TScale, btScalar TMass, const char *texture) {
 
-	ISceneNode *Node = irrScene->addCubeSceneNode(1.0f);
+	ISceneNode *Node = _scene->addCubeSceneNode(1.0f);
 	Node->setScale(TScale);
 	Node->setMaterialFlag(EMF_LIGHTING, 1);
 	Node->setMaterialFlag(EMF_NORMALIZE_NORMALS, true);
@@ -569,7 +701,7 @@ void Application::updateNetwork(double dt){
 
 	_mode = pkt.mode; 
 	if(pkt.mode == MODE_SERVER_SIM){
-		activeQuad->setSimulationOn(false); 
+		//activeQuad->setSimulationOn(false); 
 		activeQuad->setPosition(glm::vec3(pkt.pos[1], -pkt.pos[2], pkt.pos[0])); 
 		// yaw = y, pitch = x, roll = z; 
 		glm::quat rr(cos(-roll / 2), 0, 0, sin(-roll / 2));  
@@ -586,7 +718,7 @@ void Application::updateNetwork(double dt){
 		//printf("mal(%f %f %f)\n", lm.x, lm.y, lm.z);  
 		//printf("pos(%f %f %f) vel(%f %f %f)\n", pkt.pos[0], pkt.pos[1], pkt.pos[2], pkt.vel[0], pkt.vel[1], pkt.vel[2]); 
 	} else if(pkt.mode == MODE_CLIENT_SIM){
-		activeQuad->setSimulationOn(true); 
+		//activeQuad->setSimulationOn(true); 
 	}
 
 	//printf("servo(%d %d %d %d) rpy(%f %f %f)\n", pkt.servo[0], pkt.servo[1], pkt.servo[2], pkt.servo[3], roll, pitch, yaw); 
