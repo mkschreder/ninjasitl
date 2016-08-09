@@ -22,6 +22,14 @@ public:
 	TiltXRotor(Application *app); 
 
 	virtual void setOutput(unsigned int id, float value) override ; 
+	virtual void onCollision(const btCollisionObject *a, const btCollisionObject *b) override; 
 protected: 
-	
+	virtual btRigidBody *createFrameRigidBody() override; 
+	virtual irr::scene::ISceneNode *createFrameSceneNode() override; 
+
+private:
+	irr::scene::IAnimatedMeshSceneNode *_frame_node; 
+	irr::scene::IAnimatedMeshSceneNode *_front_arm, *_back_arm; 
+
+	std::vector<btRigidBody*> _props; 
 }; 

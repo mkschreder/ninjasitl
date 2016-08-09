@@ -24,7 +24,6 @@ GenericXRotor::GenericXRotor(Application *app):
 }
 
 irr::scene::ISceneNode *GenericXRotor::createFrameSceneNode(){
-	::printf("GenericX: setup scene node\n"); 
 	irr::scene::IAnimatedMeshSceneNode *n = (irr::scene::IAnimatedMeshSceneNode*)Multirotor::createFrameSceneNode(); 
 
 	n->setMesh(_application->getSceneManager()->getMesh("frame_quad_x.obj")); 
@@ -33,7 +32,6 @@ irr::scene::ISceneNode *GenericXRotor::createFrameSceneNode(){
 }
 
 void GenericXRotor::setupMotors(){
-	::printf("GenericX: setup motors\n"); 
 	_motors.push_back(new Motor(glm::vec3( 0.15, 0.0, 0.1), Motor::MOTOR_CCW));
 	_motors.push_back(new Motor(glm::vec3(-0.15, 0.0,-0.1), Motor::MOTOR_CCW));
 	_motors.push_back(new Motor(glm::vec3(-0.15, 0.0, 0.1), Motor::MOTOR_CW));

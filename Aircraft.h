@@ -54,6 +54,8 @@ public:
 	virtual void update(float dt); 
 	virtual void render(){}; 
 	virtual void setOutput(unsigned int id, float value) {}; 
+	
+	virtual void onCollision(const btCollisionObject *a, const btCollisionObject *b) {} ; 
 
 	void init(); 	
 protected: 
@@ -81,5 +83,6 @@ private:
 	glm::ivec3 _home; 
 
 	irr::scene::ISceneNode *_frame_node; 
+protected:
 	btRigidBody *_frame_body; 
 }; 

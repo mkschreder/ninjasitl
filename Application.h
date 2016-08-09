@@ -18,8 +18,8 @@
 #pragma once
 
 #include <irrlicht.h>
-#include <btBulletCollisionCommon.h>
-#include <btBulletDynamicsCommon.h>
+#include <bullet/btBulletCollisionCommon.h>
+#include <bullet/btBulletDynamicsCommon.h>
 #include <cstdlib>
 #include <glm/glm.hpp>
 #include <glm/gtx/vector_angle.hpp>
@@ -33,6 +33,12 @@ using namespace scene;
 using namespace video;
 using namespace io;
 using namespace gui;
+
+enum {
+	COLLIDE_WORLD = (1 << 0), 
+	COLLIDE_FRAME = (1 << 1), 
+	COLLIDE_PROP = (1 << 2)
+}; 
 
 class Application : public IEventReceiver{
 public:
@@ -57,6 +63,9 @@ public:
 	irr::video::IVideoDriver *getVideoDriver(); 
 	irr::scene::ISceneManager *getSceneManager(); 
 	btDiscreteDynamicsWorld *getDynamicsWorld();
+
+	static void _dynamicsTickCallback(btDynamicsWorld *world, btScalar timeStep); 
+
 
 	// Globals
 	bool Done = false;
@@ -85,9 +94,12 @@ public:
 	bool _key_down[KEY_KEY_CODES_COUNT]; 
 
 private: 
+	void onCollision(const btCollisionObject *a, const btCollisionObject *b); 
+
 	enum {
 		CAMERA_THIRD_PERSON, 
 		CAMERA_FIRST_PERSON,
+		CAMERA_SIDE,
 		CAMERA_MODE_COUNT
 	}; 
 

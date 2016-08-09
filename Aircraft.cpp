@@ -29,10 +29,10 @@ Aircraft::Aircraft(Application *app) :
 }
  
 void Aircraft::init(){
+	setupMotors(); 
+
 	_frame_body = createFrameRigidBody(); 
 	_frame_node = createFrameSceneNode(); 
-
-	setupMotors(); 
 }
 
 void Aircraft::updateLocation(){

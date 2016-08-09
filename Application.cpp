@@ -132,7 +132,33 @@ void Application::add_triangle_mesh(IMesh *mesh, float scale){
 	btRigidBody *body = new btRigidBody(mass, mstate, shape, inertia);
 
 	// Add it to the world
-	World->addRigidBody(body);
+	World->addRigidBody(body, COLLIDE_WORLD, COLLIDE_FRAME | COLLIDE_PROP);
+}
+
+void Application::_dynamicsTickCallback(btDynamicsWorld *world, btScalar timeStep) {
+	Application *self = (Application*)world->getWorldUserInfo(); 	
+
+	int numManifolds = world->getDispatcher()->getNumManifolds();
+    for (int i=0;i<numManifolds;i++)
+    {
+        btPersistentManifold* contactManifold =  world->getDispatcher()->getManifoldByIndexInternal(i);
+        const btCollisionObject* obA = static_cast<const btCollisionObject*>(contactManifold->getBody0());
+        const btCollisionObject* obB = static_cast<const btCollisionObject*>(contactManifold->getBody1());
+
+        int numContacts = contactManifold->getNumContacts();
+        for (int j=0;j<numContacts;j++)
+        {
+            btManifoldPoint& pt = contactManifold->getContactPoint(j);
+            if (pt.getDistance()<0.f)
+            {
+                const btVector3& ptA = pt.getPositionWorldOnA();
+                const btVector3& ptB = pt.getPositionWorldOnB();
+                const btVector3& normalOnB = pt.m_normalWorldOnB;
+				
+				self->onCollision(obA, obB); 	
+            }
+        }
+    }
 }
  
 static int paused = 0; 
@@ -214,6 +240,8 @@ Application::Application()
 	Solver = new btSequentialImpulseConstraintSolver();
 	World = new btDiscreteDynamicsWorld(Dispatcher, BroadPhase, Solver, CollisionConfiguration);
 	World->setGravity(btVector3(0, -9.82, 0)); 
+	World->setInternalTickCallback(_dynamicsTickCallback); 
+	World->setWorldUserInfo(this); 
 
 	add_triangle_mesh(additional_mesh, 0.1f); 
 	add_triangle_mesh(geom, 0.1f); 
@@ -251,6 +279,10 @@ Application::Application()
 	initSharedMemory(); 
 }
 
+void Application::onCollision(const btCollisionObject *a, const btCollisionObject *b){
+	_aircraft->onCollision(a, b); 
+}
+
 void Application::initSharedMemory(){
 	int out = shmget(9005, 0, 0666); 
 	int in = shmget(9003, 0, 0666); 
@@ -261,17 +293,25 @@ void Application::initSharedMemory(){
 		if(shmctl(out, IPC_STAT, &stat) != -1 && stat.shm_segsz != sizeof(client_packet)){ 
 			printf("Deleting 'out' shared segment because size does not match!\n"); 
 			shmctl(out, IPC_RMID, NULL); 
+			out = shmget(9005, sizeof(struct client_packet), IPC_CREAT | 0666); 
+		} else {
+			out = shmget(9005, sizeof(struct client_packet), 0666); 
 		}
+	} else {
+		out = shmget(9005, sizeof(struct client_packet), IPC_CREAT | 0666); 
 	}
+
 	if(in >= 0) {
 		if(shmctl(in, IPC_STAT, &stat) != -1 && stat.shm_segsz != sizeof(server_packet)){ 
 			printf("Deleting 'in' shared segment because size does not match!\n"); 
 			shmctl(in, IPC_RMID, NULL); 
+			in = shmget(9003, sizeof(struct server_packet), IPC_CREAT | 0666); 
+		} else {
+			in = shmget(9003, sizeof(struct server_packet), 0666); 
 		}
+	} else {
+		in = shmget(9003, sizeof(struct server_packet), IPC_CREAT | 0666); 
 	}
-
-	out = shmget(9005, sizeof(struct client_packet), IPC_CREAT | 0666); 
-	in = shmget(9003, sizeof(struct server_packet), IPC_CREAT | 0666); 
 	
 	if(out < 0 || in < 0) {
 		perror("shmget"); 
@@ -376,10 +416,10 @@ void Application::handleInput(double dt){
 	// Pitch 
 	if(_key_down[KEY_UP]){
 		if(mRCPitch < 0.5) mRCPitch = 0.5; 
-		mRCPitch += dt * 0.4; 	
+		mRCPitch += dt * 0.8; 	
 	} else if(_key_down[KEY_DOWN]){
 		if(mRCPitch > 0.5) mRCPitch = 0.5; 
-		mRCPitch -= dt * 0.4; 
+		mRCPitch -= dt * 0.8; 
 	} else {
 		mRCPitch = 0.5; 
 	}	
@@ -387,10 +427,10 @@ void Application::handleInput(double dt){
 	// Roll 
 	if(_key_down[KEY_RIGHT]){
 		if(mRCRoll < 0.5) mRCRoll = 0.5; 
-		mRCRoll += dt * 0.4; 	
+		mRCRoll += dt * 0.8; 	
 	} else if(_key_down[KEY_LEFT]){
 		if(mRCRoll > 0.5) mRCRoll = 0.5; 
-		mRCRoll -= dt * 0.4; 
+		mRCRoll -= dt * 0.8; 
 	} else {
 		mRCRoll = 0.5; 
 	}	
@@ -469,9 +509,17 @@ void Application::updateCamera(){
 			mCamera->setPosition(vector3df(cpos.x, cpos.y, cpos.z)); 
 			mCamera->setTarget(vector3df(pos.x, pos.y, pos.z));
 		} break; 
+		case CAMERA_SIDE: {
+			glm::vec3 cpos = pos + rot * glm::vec3(2, 0, 0); 
+			cpos.y = pos.y + 1; 
+			glm::vec3 cnorm; 
+			clipRay(pos, cpos, &cpos, &cnorm); 
+			mCamera->setPosition(vector3df(cpos.x, cpos.y, cpos.z)); 
+			mCamera->setTarget(vector3df(pos.x, pos.y, pos.z));
+		} break; 
 		case CAMERA_FIRST_PERSON: {
-			glm::vec3 cp = pos + rot * glm::vec3(0, 0, 0.5); 
-			glm::vec3 ct = pos + rot * glm::vec3(0, 0, 1.0); 
+			glm::vec3 cp = pos + rot * glm::vec3(0, 0.5, 0.5); 
+			glm::vec3 ct = pos + rot * glm::vec3(0, 0.6, 1.0); 
 			glm::vec3 cu = rot * glm::vec3(0, 1.0, 0.0); 
 			mCamera->setPosition(vector3df(cp.x, cp.y, cp.z)); 
 			mCamera->setTarget(vector3df(ct.x, ct.y, ct.z));
@@ -667,7 +715,7 @@ btRigidBody *Application::CreateBox(const btVector3 &TPosition, const vector3df 
 	RigidBody->setUserPointer((void *)(Node));
 
 	// Add it to the world
-	World->addRigidBody(RigidBody);
+	World->addRigidBody(RigidBody, COLLIDE_WORLD, 0xffff);
 	Objects.push_back(RigidBody);
 
 	return RigidBody; 

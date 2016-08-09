@@ -50,7 +50,7 @@ btRigidBody *Multirotor::createFrameRigidBody(){
 
 	btDefaultMotionState *ms = new btDefaultMotionState(tr);
 
-	btBoxShape *shape = new btBoxShape(btVector3(0.5f, 0.05f, 0.5f)); 
+	btBoxShape *shape = new btBoxShape(btVector3(0.4f, 0.1f, 0.4f)); 
 
 	// Add mass
 	btVector3 inertia;
@@ -59,14 +59,14 @@ btRigidBody *Multirotor::createFrameRigidBody(){
 	// Create the rigid body object
 	btRigidBody::btRigidBodyConstructionInfo info(mass, ms, shape, inertia); //motion state would actually be non-null in most real usages
 	info.m_restitution = 2.0f;
-	info.m_friction = 1.5f;
+	info.m_friction = 0.4f;
 
 	btRigidBody *frame = new btRigidBody(info);
 	
 	frame->setDamping(0.05, 0.1); 
 	frame->setActivationState(DISABLE_DEACTIVATION); 
 
-	_application->getDynamicsWorld()->addRigidBody(frame); 
+	_application->getDynamicsWorld()->addRigidBody(frame, COLLIDE_FRAME, COLLIDE_WORLD); 
 
 	return frame; 
 }
