@@ -33,7 +33,9 @@ public:
 	const glm::vec3 &getThrustVector(); 
 	const glm::vec3 &getTorqueVector(); 
 
+	void setPower(float power); 
 	void setThrust(float value); 
+	void setRotation(const glm::quat &q); 
 private:
 	// motor position relative to body
 	glm::vec3 _pos; 

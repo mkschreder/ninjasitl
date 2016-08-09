@@ -16,36 +16,32 @@
 */
 
 #include "Application.h"
-#include "Copter.h"
+#include "Multirotor.h"
 
-Copter::Copter(Application *app, Copter::frame_type_t frame_type):Aircraft(app){
-	mApp = app;
-
-	Aircraft::configure(createFrameSceneNode(), createFrameRigidBody()); 
-	
-	setFrameType(frame_type); 
+Multirotor::Multirotor(Application *app):Aircraft(app){
+	_application = app;
 
 	// Create a box rigid body
 
 	//_frame_body->setUserPointer((void *)(Node));
 
 	// Add it to the world
-	//mApp->World->addRigidBody(_frame_body);
-	//mApp->Objects.push_back(_frame_body);
+	//_application->World->addRigidBody(_frame_body);
+	//_application->Objects.push_back(_frame_body);
 }
 
-ISceneNode *Copter::createFrameSceneNode(){
-	ISceneManager *scene = mApp->getSceneManager();
+ISceneNode *Multirotor::createFrameSceneNode(){
+	ISceneManager *scene = _application->getSceneManager();
 	
-	IAnimatedMesh *mesh = scene->getMesh("quad_body.obj"); 
-	ISceneNode *node = scene->addAnimatedMeshSceneNode(mesh);
+	IAnimatedMesh *mesh = scene->getMesh("frame_quad_x.obj"); 
+	_body_node = scene->addAnimatedMeshSceneNode(mesh);
 
-	node->setMaterialTexture(0, mApp->_drv->getTexture("rust0.jpg"));
+	_body_node->setMaterialTexture(0, _application->_drv->getTexture("rust0.jpg"));
 	
-	return node; 
+	return _body_node; 
 }
 
-btRigidBody *Copter::createFrameRigidBody(){
+btRigidBody *Multirotor::createFrameRigidBody(){
 	float mass = 2.0f; 
 
 	btTransform tr;
@@ -70,40 +66,14 @@ btRigidBody *Copter::createFrameRigidBody(){
 	frame->setDamping(0.05, 0.1); 
 	frame->setActivationState(DISABLE_DEACTIVATION); 
 
-	_app->getDynamicsWorld()->addRigidBody(frame); 
+	_application->getDynamicsWorld()->addRigidBody(frame); 
 
 	return frame; 
 }
 
-void Copter::setFrameType(Copter::frame_type_t frame_type){
-	// delete all motors 
-	for(std::vector<Motor*>::iterator i = _motors.begin(); 
-		i != _motors.end(); ++i){
-		delete *i; 
-	}
-	_motors.clear(); 
-
-	// setup motor matrix
-	switch(frame_type){
-		case QUAD_PLUS: 
-			_motors.push_back(new Motor(glm::vec3( 0.15, 0.05, 0.0), Motor::MOTOR_CCW));
-			_motors.push_back(new Motor(glm::vec3(-0.15, 0.05, 0.0), Motor::MOTOR_CCW));
-			_motors.push_back(new Motor(glm::vec3( 0.0, 0.05, 0.15), Motor::MOTOR_CW));
-			_motors.push_back(new Motor(glm::vec3( 0.0, 0.05,-0.15), Motor::MOTOR_CW));
-			break; 
-		case QUAD_X: 	
-			_motors.push_back(new Motor(glm::vec3( 0.15, 0.0, 0.1), Motor::MOTOR_CCW));
-			_motors.push_back(new Motor(glm::vec3(-0.15, 0.0,-0.1), Motor::MOTOR_CCW));
-			_motors.push_back(new Motor(glm::vec3(-0.15, 0.0, 0.1), Motor::MOTOR_CW));
-			_motors.push_back(new Motor(glm::vec3( 0.15, 0.0,-0.1), Motor::MOTOR_CW));
-			break; 
-		default: 
-			break; 
-	}
-}
 /*
-void Copter::setSimulationOn(bool on){
-	mApp->World->removeRigidBody(_frame_body);
+void Multirotor::setSimulationOn(bool on){
+	_application->World->removeRigidBody(_frame_body);
 	if(on){
 		_frame_body->setActivationState(DISABLE_DEACTIVATION);
 		_frame_body->setActivationState(ACTIVE_TAG);
@@ -112,20 +82,20 @@ void Copter::setSimulationOn(bool on){
 		_frame_body->setActivationState(DISABLE_SIMULATION);
 		//_frame_body->setDamping(0, 0); 
 	}
-	mApp->World->addRigidBody(_frame_body);
+	_application->World->addRigidBody(_frame_body);
 	_simulate = on; 
 }
 */
-void Copter::setOutputThrust(unsigned int id, float value){
-	if(id >= _motors.size()) return; 
-	_motors[id]->setThrust(value); 	
+void Multirotor::setOutput(unsigned int id, float value){
+	if(id < _motors.size()) {
+		_motors[id]->setThrust(value); 	
+	}
 }
 
-
-void Copter::render(){
+void Multirotor::render(){
 	Aircraft::render(); 
 
-	irr::video::IVideoDriver *drv = mApp->getVideoDriver(); 
+	irr::video::IVideoDriver *drv = _application->getVideoDriver(); 
 
 	glm::quat rot = getRotation();
 	glm::vec3 pos = getPosition(); // + rot * glm::vec3(0, 0.2, 0);
@@ -144,7 +114,7 @@ void Copter::render(){
 	
 	glm::vec3 hit, norm; 
 	/*
-	if(mApp->clipRay(pos, pos + rot * glm::vec3(100.0, 0, 0.0), &hit, &norm)){
+	if(_application->clipRay(pos, pos + rot * glm::vec3(100.0, 0, 0.0), &hit, &norm)){
 		drv->draw3DBox(aabbox3df(vector3df(hit.x - 0.1, hit.y - 0.1, hit.z - 0.1), vector3df(hit.x + 0.1, hit.y + 0.1, hit.z + 0.1)), SColor(255, 255, 0, 0)); 
 		drv->draw3DLine(vector3df(pos.x, pos.y, pos.z),
 			vector3df(hit.x, hit.y, hit.z), 
@@ -201,7 +171,7 @@ void Copter::render(){
 	}	
 }
 
-void Copter::updateForces(){
+void Multirotor::updateForces(){
 	for(std::vector<Motor*>::iterator i = _motors.begin(); i != _motors.end(); ++i){
 		Aircraft::applyFrameForce((*i)->getThrustVector(), (*i)->getPosition()); 	
 		Aircraft::applyFrameForce((*i)->getTorqueVector(), (*i)->getPosition()); 	

@@ -25,10 +25,14 @@
 #include <sys/shm.h>
 #include <stdio.h>
 
+#include "GenericXRotor.h"
+#include "TiltXRotor.h"
+
 #define MODE_CLIENT_SIM 0
 #define MODE_SERVER_SIM 1
 struct server_packet {
 	uint8_t mode; 
+	uint8_t frame; 
 	int16_t servo[8]; 
 	float pos[3]; 
 	float vel[3]; 
@@ -161,19 +165,18 @@ Application::Application()
 	irrDevice->getFileSystem()->addFileArchive("base");
 	irrDevice->getFileSystem()->addFileArchive("base/pak0.pk3");
 	//irrDevice->getFileSystem()->addFileArchive("base/map-20kdm2.pk3");
-	//irrDevice->getFileSystem()->addFileArchive("base/akutatourney3.pk3");
+	irrDevice->getFileSystem()->addFileArchive("base/q3dmp29.pk3");
 	//irrDevice->getFileSystem()->addFileArchive("base/q3dmp29.pk3");
-	irrDevice->getFileSystem()->addFileArchive("base/trespass.pk3");
-
-	_scene->getParameters()->setAttribute(scene::ALLOW_ZWRITE_ON_TRANSPARENT, true); 
+	//irrDevice->getFileSystem()->addFileArchive("base/q3dmp23.pk3");
 
 	//scene::IQ3LevelMesh *mesh = (scene::IQ3LevelMesh*)_scene->getMesh("q3dmp29.bsp"); 
-	scene::IQ3LevelMesh *mesh = (scene::IQ3LevelMesh*)_scene->getMesh("trespass.bsp"); 
+	scene::IQ3LevelMesh *mesh = (scene::IQ3LevelMesh*)_scene->getMesh("q3dmp29.bsp"); 
 	if(!mesh){
 		printf("could not load map mesh!\n"); 
 		exit(0); 
 	}
 
+	_scene->getParameters()->setAttribute(scene::ALLOW_ZWRITE_ON_TRANSPARENT, true); 
 	// the additional mesh can be quite huge and is unoptimized
 	scene::IMesh * const additional_mesh = mesh->getMesh(quake3::E_Q3_MESH_ITEMS);
 
@@ -235,13 +238,14 @@ Application::Application()
 	// Main loop
 	TimeStamp = irrTimer->getTime();
 
-	activeQuad = new Copter(this, Copter::QUAD_X);
+	_aircraft = new TiltXRotor(this);
+	_aircraft->init(); 
 	
-	activeQuad->setPosition(start + glm::vec3(0, 4, 0)); 
-	activeQuad->setHomeLocation(glm::vec3(149.165230, 584, -35.363261)); 
+	_aircraft->setPosition(start + glm::vec3(0, 4, 0)); 
+	_aircraft->setHomeLocation(glm::vec3(149.165230, 584, -35.363261)); 
 
 	// platform
-	CreateBox(btVector3(start.x, start.y-3, start.z), vector3df(10.0f, 1.5f, 10.0f), 0.0f, "ice0.jpg");
+	CreateBox(btVector3(start.x, start.y-3, start.z), vector3df(5.0f, 1.5f, 5.0f), 0.0f, "ice0.jpg");
 	//sock.bind("127.0.0.1", 9002); 
 	//sock.set_blocking(false); 
 	initSharedMemory(); 
@@ -421,8 +425,8 @@ static const glm::vec3 dir[6] = {
 }; 
 
 void Application::renderRange(){
-	glm::vec3 pos = activeQuad->getPosition(); 
-	glm::quat rot = activeQuad->getRotation(); 
+	glm::vec3 pos = _aircraft->getPosition(); 
+	glm::quat rot = _aircraft->getRotation(); 
 	
 	for(int c = 0; c < 6; c++){
 		glm::vec3 hit = pos + rot * dir[c] * _range_scan[c]; 
@@ -441,8 +445,8 @@ void Application::renderRange(){
 }
 
 void Application::scanRange(){
-	glm::vec3 pos = activeQuad->getPosition(); 
-	glm::quat rot = activeQuad->getRotation(); 
+	glm::vec3 pos = _aircraft->getPosition(); 
+	glm::quat rot = _aircraft->getRotation(); 
 	
 	for(int c = 0; c < 6; c++){
 		glm::vec3 end; 
@@ -452,8 +456,8 @@ void Application::scanRange(){
 }
 
 void Application::updateCamera(){
-	glm::quat rot = activeQuad->getRotation(); 
-	glm::vec3 pos = activeQuad->getPosition(); 
+	glm::quat rot = _aircraft->getRotation(); 
+	glm::vec3 pos = _aircraft->getPosition(); 
 	glm::vec3 e = glm::eulerAngles(rot); 
 
 	switch(_camera_mode){
@@ -486,7 +490,6 @@ void Application::run(){
 	TimeStamp = time; 
 
 	if(!paused){
-		activeQuad->updateForces(); 
 		World->stepSimulation(dt, 400, 0.001);
 
 		scanRange(); 
@@ -494,7 +497,7 @@ void Application::run(){
 		updateCamera(); 
 		handleInput(dt); 
 
-		activeQuad->update(dt);
+		_aircraft->update(dt);
 
 		// Relay the object's orientation to irrlicht
 		for(list<btRigidBody *>::Iterator Iterator = Objects.begin(); Iterator != Objects.end(); ++Iterator) {
@@ -508,7 +511,7 @@ void Application::run(){
 	_scene->drawAll();
 	
 	// debug
-	activeQuad->render(); 
+	_aircraft->render(); 
 	renderRange(); 
 
 	irrGUI->drawAll();
@@ -547,8 +550,8 @@ bool Application::OnEvent(const SEvent &ev) {
 					glm::vec3(0, 1, 0), 
 					glm::vec3(0, 0, 1)
 				}; 
-				activeQuad->setRotation(glm::quat(1, 0, 0, 0)); 
-				activeQuad->setAngularVelocity(vel[id++]); 
+				_aircraft->setRotation(glm::quat(1, 0, 0, 0)); 
+				_aircraft->setAngularVelocity(vel[id++]); 
 				id = id % (sizeof(vel) / sizeof(vel[0])); 
 				break; 
 			}
@@ -562,9 +565,9 @@ bool Application::OnEvent(const SEvent &ev) {
 					glm::quat(cos(glm::radians(-45.0) / 2), sin(glm::radians(-45.0) / 2), 0, 0), // front
 					glm::quat(cos(glm::radians(45.0) / 2), sin(glm::radians(45.0) / 2), 0, 0) // back
 				}; 
-				activeQuad->setPosition(glm::vec3(0, 10, 0)); 
-				activeQuad->setRotation(rots[id++] * y); 
-				activeQuad->setAngularVelocity(glm::vec3(0, 0, 0)); 
+				_aircraft->setPosition(glm::vec3(0, 10, 0)); 
+				_aircraft->setRotation(rots[id++] * y); 
+				_aircraft->setAngularVelocity(glm::vec3(0, 0, 0)); 
 				id = id % (sizeof(rots) / sizeof(rots[0])); 
 				break; 
 			}
@@ -575,11 +578,11 @@ bool Application::OnEvent(const SEvent &ev) {
 				}
 				_calibration = !_calibration; 
 				if(!_calibration){
-					//activeQuad->setSimulationOn(true); 
+					//_aircraft->setSimulationOn(true); 
 					World->setGravity(btVector3(0, -9.82, 0)); 
 					printf("Left calibration mode!\n"); 
 				} else {
-					//activeQuad->setSimulationOn(false); 
+					//_aircraft->setSimulationOn(false); 
 					World->setGravity(btVector3(0, 0, 0)); 
 					printf("Entered calibration mode\n");
 				}
@@ -596,9 +599,9 @@ bool Application::OnEvent(const SEvent &ev) {
 					glm::quat(cos(glm::radians(0.0) / 2), 0, 0, sin(glm::radians(0.0) / 2)), // level
 					glm::quat(cos(glm::radians(180.0) / 2), 0, 0, sin(glm::radians(180.0) / 2)) // upsidedown
 				}; 
-				activeQuad->setPosition(glm::vec3(0, 10, 0)); 
-				activeQuad->setAngularVelocity(glm::vec3(0, -1, 0)); 
-				activeQuad->setRotation(rots[id++]); 
+				_aircraft->setPosition(glm::vec3(0, 10, 0)); 
+				_aircraft->setAngularVelocity(glm::vec3(0, -1, 0)); 
+				_aircraft->setRotation(rots[id++]); 
 				id = id % 7; 
 				break; 
 			}
@@ -627,9 +630,9 @@ void Application::updatePhysics(float dt) {
 // Creates a base box
 void Application::CreateStartScene() {
 	ClearObjects();
-	CreateBox(btVector3(0.0f, 0.0f, 0.0f), vector3df(50.0f, 0.5f, 50.0f), 0.0f, "ice0.jpg");
-	CreateBox(btVector3(20.0f, 0.0f, 0.0f), vector3df(0.5f, 50.0f, 50.0f), 0.0f, "ice0.jpg");
-	CreateBox(btVector3(0.0f, 0.0f, 20.0f), vector3df(50.0f, 50.0f, 0.5f), 0.0f, "ice0.jpg");
+	//CreateBox(btVector3(0.0f, 0.0f, 0.0f), vector3df(50.0f, 0.5f, 50.0f), 0.0f, "ice0.jpg");
+	//CreateBox(btVector3(20.0f, 0.0f, 0.0f), vector3df(0.5f, 50.0f, 50.0f), 0.0f, "ice0.jpg");
+	//CreateBox(btVector3(0.0f, 0.0f, 20.0f), vector3df(50.0f, 50.0f, 0.5f), 0.0f, "ice0.jpg");
 }
 
 // Create a box rigid body
@@ -701,42 +704,43 @@ void Application::updateNetwork(double dt){
 
 	_mode = pkt.mode; 
 	if(pkt.mode == MODE_SERVER_SIM){
-		//activeQuad->setSimulationOn(false); 
-		activeQuad->setPosition(glm::vec3(pkt.pos[1], -pkt.pos[2], pkt.pos[0])); 
+		//_aircraft->setSimulationOn(false); 
+		//_aircraft->setFrameType((Copter::frame_type_t)pkt.frame); 
+		_aircraft->setPosition(glm::vec3(pkt.pos[1], -pkt.pos[2], pkt.pos[0])); 
 		// yaw = y, pitch = x, roll = z; 
 		glm::quat rr(cos(-roll / 2), 0, 0, sin(-roll / 2));  
 		glm::quat rp(cos(-pitch / 2), sin(-pitch / 2), 0, 0);  
 		glm::quat ry(cos(yaw / 2), 0, sin(yaw / 2), 0);  
 
-		activeQuad->setRotation(ry * rp * rr); 
-		activeQuad->setLinearVelocity(glm::vec3(pkt.vel[1], -pkt.vel[2], pkt.vel[0])); 
-		activeQuad->setAccelerometer(glm::vec3(pkt.acc[1], -pkt.acc[2], pkt.acc[0])); 
-		activeQuad->setMagneticField(glm::vec3(pkt.mag[1], -pkt.mag[2], pkt.mag[0])); 
+		_aircraft->setRotation(ry * rp * rr); 
+		_aircraft->setLinearVelocity(glm::vec3(pkt.vel[1], -pkt.vel[2], pkt.vel[0])); 
+		_aircraft->setAccelerometer(glm::vec3(pkt.acc[1], -pkt.acc[2], pkt.acc[0])); 
+		_aircraft->setMagneticField(glm::vec3(pkt.mag[1], -pkt.mag[2], pkt.mag[0])); 
 	
-		//glm::vec3 lm = activeQuad->calcMagFieldIntensity(); 
+		//glm::vec3 lm = _aircraft->calcMagFieldIntensity(); 
 		//printf("mas(%f %f %f)\n", pkt.mag[1], -pkt.mag[2], pkt.mag[0]); 
 		//printf("mal(%f %f %f)\n", lm.x, lm.y, lm.z);  
 		//printf("pos(%f %f %f) vel(%f %f %f)\n", pkt.pos[0], pkt.pos[1], pkt.pos[2], pkt.vel[0], pkt.vel[1], pkt.vel[2]); 
 	} else if(pkt.mode == MODE_CLIENT_SIM){
-		//activeQuad->setSimulationOn(true); 
+		//_aircraft->setSimulationOn(true); 
 	}
 
 	//printf("servo(%d %d %d %d) rpy(%f %f %f)\n", pkt.servo[0], pkt.servo[1], pkt.servo[2], pkt.servo[3], roll, pitch, yaw); 
 	for(unsigned c = 0; c < 8; c++){
-		activeQuad->setOutputThrust(c, (pkt.servo[c] - 1000) / 1000.0f); 
+		_aircraft->setOutput(c, (pkt.servo[c] - 1000) / 1000.0f); 
 	}
 
 	// send our state
 	struct client_packet state; 
 	memset(&state, 0, sizeof(state)); 
 
-	glm::vec3 pos = activeQuad->getPosition(); 
-	glm::quat rot = activeQuad->getRotation(); 
-	glm::vec3 accel = activeQuad->getAccel(); 
-	glm::ivec3 loc = activeQuad->getLocation(); 
-	glm::vec3 mag = activeQuad->getMagneticField();
-	glm::vec3 vel = activeQuad->getVelocity(); 
-	glm::vec3 gyro = activeQuad->getGyro(); 
+	glm::vec3 pos = _aircraft->getPosition(); 
+	glm::quat rot = _aircraft->getRotation(); 
+	glm::vec3 accel = _aircraft->getAccel(); 
+	glm::ivec3 loc = _aircraft->getLocation(); 
+	glm::vec3 mag = _aircraft->getMagneticField();
+	glm::vec3 vel = _aircraft->getVelocity(); 
+	glm::vec3 gyro = _aircraft->getGyro(); 
 	glm::vec3 euler = glm::eulerAngles(rot); 
 
 	state.id = _sent_count++; 

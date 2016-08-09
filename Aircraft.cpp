@@ -24,13 +24,15 @@ using namespace scene;
 using namespace core;
 
 Aircraft::Aircraft(Application *app) : 
-	_app(app){
+	_application(app){
 
 }
  
-void Aircraft::configure(irr::scene::ISceneNode *node, btRigidBody *body){
-	_frame_body = body; 
-	_frame_node = node; 
+void Aircraft::init(){
+	_frame_body = createFrameRigidBody(); 
+	_frame_node = createFrameSceneNode(); 
+
+	setupMotors(); 
 }
 
 void Aircraft::updateLocation(){
@@ -183,42 +185,31 @@ void Aircraft::applyFrameForce(const glm::vec3 &force, const glm::vec3 &force_po
 	glm::quat rot = getRotation(); 
 
 	// force is in body frame and position is relative to center of the body
-	// so we need to rotate it and translate it into world frame based on craft rotation and position
+	// so we need to rotate it into craft body frame 
 
 	glm::vec3 p = rot * force_pos; 
 	glm::vec3 f = rot * force; 
 	
-	//::printf("thrust: %f %f %f\n", f.x, f.y, f.z); 
 	// forces are applied to the frame rigid body
 	_frame_body->applyForce(btVector3(f.x, f.y, f.z), btVector3(p.x, p.y, p.z)); 
-
-	//float th = _motors[c].thrust * 10.0f; 
-	//glm::vec3 p = rot * _motors[c].pos;
-	//glm::vec3 f = rot * glm::vec3(0, 1.0, 0) * th; 
-	//glm::vec3 a = rot * _motors[c].torque * th * 0.4f; 
 }
 
 void Aircraft::update(float dt){
 	//btVector3 tot = _frame_body->getTotalForce(); 
 	//printf("tot: %f %f %f\n", tot[0], tot[1], tot[2]); 
 	// + frame
+	
+	updateForces(); 
 
-	//printf("thrust: "); 
-	//if(_simulate){
-		updateLocation(); 
+	updateLocation(); 
 
-		// update accel
-		glm::vec3 vel = getVelocity(); 
-		_linear_acceleration = (vel - _velocity) / dt; // / 0.018f; 
-		_velocity = vel; 
+	// update accel
+	glm::vec3 vel = getVelocity(); 
+	_linear_acceleration = (vel - _velocity) / dt; // / 0.018f; 
+	_velocity = vel; 
 
-		_accel = calcAcceleration(); 
-		_mag = calcMagFieldIntensity(); 
-	//} else {
-		// update position based on velocity
-	//	updateLocation(); 
-	//}
-	//printf("\n"); 
+	_accel = calcAcceleration(); 
+	_mag = calcMagFieldIntensity(); 
 
 	// update the scene node
 	// Set position

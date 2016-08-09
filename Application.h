@@ -25,7 +25,7 @@
 #include <glm/gtx/vector_angle.hpp>
 
 #include "Socket.h"
-#include "Copter.h"
+#include "Aircraft.h"
 
 using namespace irr;
 using namespace core;
@@ -49,7 +49,7 @@ public:
 	void ClearObjects();
 	int GetRandInt(int TMax) { return rand() % TMax; }
 	void run();
-	Copter *getActiveQuad(){ return activeQuad; }
+
 	virtual bool OnEvent(const SEvent &TEvent);
 	
 	bool clipRay(const glm::vec3 &_start, const glm::vec3 &_end, glm::vec3 *end, glm::vec3 *norm = NULL); 
@@ -74,7 +74,7 @@ public:
 	IFileSystem *irrFile;
 	ITimer *irrTimer;
 	ILogger *irrLog;
-	Copter *activeQuad; 
+	Aircraft *_aircraft; 
 	list<btRigidBody *> Objects;
 	double mRCThrottle, mRCYaw, mRCPitch, mRCRoll, mRCAux1, mRCAux2; 
 	float _spin; 

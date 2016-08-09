@@ -36,33 +36,30 @@ using namespace glm;
 
 class Application;
 
-class Copter : public Aircraft {
+class Multirotor : public Aircraft {
 public:
-	typedef enum {
-		QUAD_PLUS, 
-		QUAD_X
-	} frame_type_t; 
-
-	Copter(Application *app, Copter::frame_type_t frame_type);
+	Multirotor(Application *app);
 
 	virtual void updateForces(); 
 	virtual void render();
 	
-	void setOutputThrust(unsigned int id, float thrust); 
-
-	void setFrameType(Copter::frame_type_t frame_type); 
-
+	virtual void setOutput(unsigned int id, float thrust) override; 
+	
 	void setSimulationOn(bool on); 
 protected: 
-	// for setup 
-	virtual btRigidBody *createFrameRigidBody(); 
-	virtual irr::scene::ISceneNode *createFrameSceneNode(); 
+	// implement aircraft methods 
+	virtual btRigidBody *createFrameRigidBody() override; 
+	virtual irr::scene::ISceneNode *createFrameSceneNode() override; 
 
-private:
+	// for derived classes
+	virtual void setupMotors() override {}; 
+
 	std::vector<Motor*> _motors; 
-	Application *mApp; 
+private:
 	
 	bool raytest(const glm::vec3 &_start, const glm::vec3 &dir, glm::vec3 &end, glm::vec3 &norm); 
+	
+	irr::scene::IAnimatedMeshSceneNode *_body_node; 
 
 	bool _simulate; 
 };

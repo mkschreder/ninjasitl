@@ -50,19 +50,22 @@ public:
 	void setAccelerometer(const glm::vec3 &v); 
 	void setMagneticField(const glm::vec3 &v); 
 
-	virtual void updateForces() = 0; 	
+	virtual void updateForces() {};	
 	virtual void update(float dt); 
 	virtual void render(){}; 
+	virtual void setOutput(unsigned int id, float value) {}; 
+
+	void init(); 	
 protected: 
 	Aircraft(Application *app); 
-	
-	void configure(irr::scene::ISceneNode *node, btRigidBody *body); 	
+
 	virtual btRigidBody *createFrameRigidBody() { return NULL; }; 
 	virtual irr::scene::ISceneNode *createFrameSceneNode() { return NULL; }; 
+	virtual void setupMotors(void) {} ; 
 
 	void applyFrameForce(const glm::vec3 &force, const glm::vec3 &force_pos); 
 	
-	Application *_app; 
+	Application *_application; 
 
 private:
 	void updateLocation(); 

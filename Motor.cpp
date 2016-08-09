@@ -39,6 +39,14 @@ const glm::vec3 &Motor::getPosition(){
 	return _pos; 
 }
 
+void Motor::setPower(float power){
+	_power = power; 
+}
+
+void Motor::setRotation(const glm::quat &q){
+	_rotation = q; 
+}
+
 const glm::vec3 &Motor::getThrustVector(){
 	return _thrust; 
 }
