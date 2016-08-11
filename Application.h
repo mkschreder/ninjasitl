@@ -118,6 +118,7 @@ private:
 	float _range_scan[6]; 
 	
 	int _camera_mode; 
+	glm::vec3 _player_start; 
 
 	// shared memory stuff
 	char *_shmout; char *_shmin; 

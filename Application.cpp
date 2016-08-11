@@ -30,6 +30,9 @@
 
 #define MODE_CLIENT_SIM 0
 #define MODE_SERVER_SIM 1
+
+#define Q3_WORLD_SCALE 0.015f
+
 struct server_packet {
 	uint8_t mode; 
 	uint8_t frame; 
@@ -213,7 +216,7 @@ Application::Application()
 	scene::IMesh * const geom = mesh->getMesh(quake3::E_Q3_MESH_GEOMETRY); 
 	scene::ISceneNode *node = _scene->addOctreeSceneNode(geom, 0, -1, 4096);
 	
-	node->setScale(core::vector3df(0.1, 0.1, 0.1)); 
+	node->setScale(core::vector3df(Q3_WORLD_SCALE, Q3_WORLD_SCALE, Q3_WORLD_SCALE)); 
 	//node->setPosition(core::vector3df(-130,-14.4,-124.9));
 
 	for ( u32 i = 0; i!= additional_mesh->getMeshBufferCount(); ++i ){
@@ -247,13 +250,15 @@ Application::Application()
 	World->setInternalTickCallback(_dynamicsTickCallback); 
 	World->setWorldUserInfo(this); 
 
-	add_triangle_mesh(additional_mesh, 0.1f); 
-	add_triangle_mesh(geom, 0.1f); 
-	glm::vec3 start = get_player_start(mesh) * 0.1f; 
+	add_triangle_mesh(additional_mesh, Q3_WORLD_SCALE); 
+	add_triangle_mesh(geom, Q3_WORLD_SCALE); 
+	_player_start = get_player_start(mesh) * Q3_WORLD_SCALE; 
 	// Add camera
 	//mCamera = _scene->addCameraSceneNodeFPS(0, 100, 0.01);
 	mCamera = _scene->addCameraSceneNode();
-	mCamera->setPosition(vector3df(start.x, start.y, start.z));
+	mCamera->setNearValue(0.01); 
+	mCamera->setFarValue(1000.0); 
+	mCamera->setPosition(vector3df(_player_start.x, _player_start.y, _player_start.z));
 	mCamera->setRotation(vector3df(0, 0, 0)); 
 	//Camera->setUpVector(vector3df(0, 0, 1.0)); 
 	//Camera->setTarget(vector3df(1, 0, 0));
@@ -273,11 +278,11 @@ Application::Application()
 	_aircraft = new TiltXRotor(this);
 	_aircraft->init(); 
 	
-	_aircraft->setPosition(start + glm::vec3(0, 4, 0)); 
+	_aircraft->setPosition(_player_start + glm::vec3(0, 4, 0)); 
 	_aircraft->setHomeLocation(glm::vec3(149.165230, 584, -35.363261)); 
 
 	// platform
-	CreateBox(btVector3(start.x, start.y-3, start.z), vector3df(5.0f, 1.5f, 5.0f), 0.0f, "ice0.jpg");
+	CreateBox(btVector3(_player_start.x, _player_start.y-3, _player_start.z), vector3df(5.0f, 1.5f, 5.0f), 0.0f, "ice0.jpg");
 	//sock.bind("127.0.0.1", 9002); 
 	//sock.set_blocking(false); 
 
@@ -477,7 +482,7 @@ void Application::renderRange(){
 		glm::vec3 hit = pos + rot * dir[c] * _range_scan[c]; 
 		SColor color; 
 
-		if(_range_scan[c] < 9.99f)
+		if(_range_scan[c] < 1.99f)
 			color = SColor( 255, 0, 255, 0 ); 
 		else
 			color = SColor( 255, 255, 0, 0); 
@@ -495,7 +500,7 @@ void Application::scanRange(){
 	
 	for(int c = 0; c < 6; c++){
 		glm::vec3 end; 
-		clipRay(pos, pos + rot * dir[c] * 10.0f, &end); 
+		clipRay(pos, pos + rot * dir[c] * 2.0f, &end); 
 		_range_scan[c] = glm::length(end - pos); 	
 	}
 }
@@ -584,7 +589,9 @@ bool Application::OnEvent(const SEvent &ev) {
 				Done = true;
 			break;
 			case KEY_KEY_Q: 
-				paused = ~paused; 
+				_aircraft->setPosition(_player_start + glm::vec3(0, 4, 0)); 
+				_aircraft->setAngularVelocity(glm::vec3(0, 0, 0)); 
+				_aircraft->setLinearVelocity(glm::vec3(0, 0, 0)); 
 				break; 
 			case KEY_KEY_O: 
 				_spin += 0.5; 
