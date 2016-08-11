@@ -7,5 +7,6 @@ fi
 cd build
 cmake ..
 make -j8 
+cd ..
 
-./quadcopter
+./build/quadcopter
