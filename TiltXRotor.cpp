@@ -80,7 +80,7 @@ void TiltXRotor::onCollision(const btCollisionObject *a, const btCollisionObject
 			i != _props.end(); 
 			++i, id++){
 			if(*i == a || *i == b){
-				printf("prop collision! %f \n", vel.length()); 
+				//printf("prop collision! %f \n", vel.length()); 
 				//if(vel.length() > 0.1f && id < _motors.size()){
 				//	_motors[id]->setPower(0);  
 				//}

@@ -191,12 +191,14 @@ Application::Application()
 	irrDevice->getFileSystem()->addFileArchive("base");
 	irrDevice->getFileSystem()->addFileArchive("base/pak0.pk3");
 	//irrDevice->getFileSystem()->addFileArchive("base/map-20kdm2.pk3");
-	irrDevice->getFileSystem()->addFileArchive("base/q3dmp29.pk3");
+	//irrDevice->getFileSystem()->addFileArchive("base/q3dmp29.pk3");
+	irrDevice->getFileSystem()->addFileArchive("base/q3dmp23.pk3");
 	//irrDevice->getFileSystem()->addFileArchive("base/q3dmp29.pk3");
 	//irrDevice->getFileSystem()->addFileArchive("base/q3dmp23.pk3");
 
 	//scene::IQ3LevelMesh *mesh = (scene::IQ3LevelMesh*)_scene->getMesh("q3dmp29.bsp"); 
-	scene::IQ3LevelMesh *mesh = (scene::IQ3LevelMesh*)_scene->getMesh("q3dmp29.bsp"); 
+	//scene::IQ3LevelMesh *mesh = (scene::IQ3LevelMesh*)_scene->getMesh("q3dmp29.bsp"); 
+	scene::IQ3LevelMesh *mesh = (scene::IQ3LevelMesh*)_scene->getMesh("q3dmp23.bsp"); 
 	if(!mesh){
 		printf("could not load map mesh!\n"); 
 		exit(0); 
@@ -810,6 +812,7 @@ void Application::updateNetwork(double dt){
 
 	memcpy(state.range, _range_scan, min(sizeof(state.range), sizeof(_range_scan))); 
 
+#if 0 
 	printf("sending: acc(%f %f %f) gyr(%f %f %f) mag(%f %f %f) vel(%f %f %f) loc(%d %d %d) rc(%f %f %f %f)\n", 
 		state.accel[0], state.accel[1], state.accel[2],
 		state.gyro[0], state.gyro[1], state.gyro[2],
@@ -817,6 +820,7 @@ void Application::updateNetwork(double dt){
 		state.vel[0], state.vel[1], state.vel[2], 
 		state.loc[0], state.loc[1], state.loc[2],
 		state.rcin[0], state.rcin[1], state.rcin[2], state.rcin[3]); 
+#endif
 	memcpy(_shmout, &state, sizeof(state)); 
 }
 
