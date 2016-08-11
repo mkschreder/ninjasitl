@@ -9,4 +9,5 @@ cmake ..
 make -j8 
 cd ..
 
+killall quadcopter
 ./build/quadcopter

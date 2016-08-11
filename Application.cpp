@@ -179,6 +179,8 @@ Application::Application()
 	_spin = 0; 
 	_angle = 0; 
 
+	initSharedMemory(); 
+
 	irrDevice = createDevice(video::EDT_OPENGL, dimension2d<u32>(640, 480), 32, false, false, false, this);
 	irrGUI = irrDevice->getGUIEnvironment();
 	irrTimer = irrDevice->getTimer();
@@ -278,7 +280,8 @@ Application::Application()
 	CreateBox(btVector3(start.x, start.y-3, start.z), vector3df(5.0f, 1.5f, 5.0f), 0.0f, "ice0.jpg");
 	//sock.bind("127.0.0.1", 9002); 
 	//sock.set_blocking(false); 
-	initSharedMemory(); 
+
+	::fprintf(stdout, "QuadSim started!\n"); 
 }
 
 void Application::onCollision(const btCollisionObject *a, const btCollisionObject *b){
