@@ -74,7 +74,7 @@ public:
 	btDefaultCollisionConfiguration *CollisionConfiguration;
 	btCollisionDispatcher *Dispatcher; 
 	btBroadphaseInterface *BroadPhase; 
-	IrrlichtDevice *irrDevice;
+	IrrlichtDevice *_dev;
 	IVideoDriver *_drv;
 	ISceneManager *_scene;
 	IGUIEnvironment *irrGUI;
@@ -104,13 +104,21 @@ private:
 	}; 
 
 	void initSharedMemory(); 
+	void initJoystick(); 
+
 	void handleInput(double dt); 
+	void handleInputKeyboard(double dt); 
+	void handleInputJoystick(double dt); 
 
 	void scanRange(void); 
 	void renderRange(void); 
 
 	glm::vec3 get_player_start(IQ3LevelMesh *level); 
 	void add_triangle_mesh(IMesh *mesh, float scale); 
+
+private:
+	SEvent::SJoystickEvent _joystickState; 
+	bool _joystickEnabled; 
 
 	bool _calibration; 
 	uint32_t _sent_count; 

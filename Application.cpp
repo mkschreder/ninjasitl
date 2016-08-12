@@ -183,23 +183,25 @@ Application::Application()
 	_angle = 0; 
 
 	initSharedMemory(); 
-
-	irrDevice = createDevice(video::EDT_OPENGL, dimension2d<u32>(640, 480), 32, false, false, false, this);
-	irrGUI = irrDevice->getGUIEnvironment();
-	irrTimer = irrDevice->getTimer();
-	_scene = irrDevice->getSceneManager();
-	_drv = irrDevice->getVideoDriver();
+	
+	_dev = createDevice(video::EDT_OPENGL, dimension2d<u32>(640, 480), 32, false, false, false, this);
+	irrGUI = _dev->getGUIEnvironment();
+	irrTimer = _dev->getTimer();
+	_scene = _dev->getSceneManager();
+	_drv = _dev->getVideoDriver();
 	_scene->setAmbientLight(video::SColorf(1.0f, 1.0f, 1.0f, 1.0f)); 
-	irrDevice->getCursorControl()->setVisible(0);
+	_dev->getCursorControl()->setVisible(0);
+
+	initJoystick(); 
 
 	// load a map
-	irrDevice->getFileSystem()->addFileArchive("base");
-	irrDevice->getFileSystem()->addFileArchive("base/pak0.pk3");
-	//irrDevice->getFileSystem()->addFileArchive("base/map-20kdm2.pk3");
-	//irrDevice->getFileSystem()->addFileArchive("base/q3dmp29.pk3");
-	irrDevice->getFileSystem()->addFileArchive("base/q3dmp23.pk3");
-	//irrDevice->getFileSystem()->addFileArchive("base/q3dmp29.pk3");
-	//irrDevice->getFileSystem()->addFileArchive("base/q3dmp23.pk3");
+	_dev->getFileSystem()->addFileArchive("base");
+	_dev->getFileSystem()->addFileArchive("base/pak0.pk3");
+	//_dev->getFileSystem()->addFileArchive("base/map-20kdm2.pk3");
+	//_dev->getFileSystem()->addFileArchive("base/q3dmp29.pk3");
+	_dev->getFileSystem()->addFileArchive("base/q3dmp23.pk3");
+	//_dev->getFileSystem()->addFileArchive("base/q3dmp29.pk3");
+	//_dev->getFileSystem()->addFileArchive("base/q3dmp23.pk3");
 
 	//scene::IQ3LevelMesh *mesh = (scene::IQ3LevelMesh*)_scene->getMesh("q3dmp29.bsp"); 
 	//scene::IQ3LevelMesh *mesh = (scene::IQ3LevelMesh*)_scene->getMesh("q3dmp29.bsp"); 
@@ -351,7 +353,7 @@ Application::~Application(){
 	delete BroadPhase;
 	delete CollisionConfiguration;
 
-	irrDevice->drop();
+	_dev->drop();
 }
 
 irr::video::IVideoDriver *Application::getVideoDriver(){
@@ -402,7 +404,41 @@ bool Application::clipRay(const glm::vec3 &_start, const glm::vec3 &_end, glm::v
 	*/
 }
 
-void Application::handleInput(double dt){
+void Application::handleInputJoystick(double dt){
+	float thr = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_Y] / 32767.0f; 
+	float yaw = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_X] / 32767.0f; 
+	float pit = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_Z] / 32767.0f; 
+	float rll = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_R] / 32767.0f; 
+	float u = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_U] / 32767.0f; 
+	float v = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_V] / 32767.0f; 
+	
+	//printf("JOYSTICK: %f %f %f %f %f %f\n", thr, yaw, pit, rll, u, v); 
+
+	// Throttle
+	if(_key_down[KEY_KEY_W]){
+		mRCThrottle += dt * 0.6; 	
+	} else if(_key_down[KEY_KEY_S]){
+		mRCThrottle -= dt * 0.6; 
+	} else {
+		
+	}
+
+	// Yaw
+	if(_key_down[KEY_KEY_D]){
+		if(mRCYaw < 0.5) mRCYaw = 0.5; 
+		mRCYaw += dt * 0.2; 	
+	} else if(_key_down[KEY_KEY_A]){
+		if(mRCYaw > 0.5) mRCYaw = 0.5; 
+		mRCYaw -= dt * 0.2; 
+	} else {
+		mRCYaw = 0.5; 
+	}	
+	
+	mRCPitch = -thr * 0.5f + 0.5f; 
+	mRCRoll = yaw * 0.5f + 0.5f; 
+}
+
+void Application::handleInputKeyboard(double dt){
 	// Throttle
 	if(_key_down[KEY_KEY_W]){
 		mRCThrottle += dt * 0.6; 	
@@ -456,7 +492,11 @@ void Application::handleInput(double dt){
 	} else if(_key_down[KEY_KEY_L]){
 		mRCAux2 -= dt * 0.2; 
 	} 
+}
 
+void Application::handleInput(double dt){
+	if(_joystickEnabled) handleInputJoystick(dt); 
+	else handleInputKeyboard(dt); 
 	if(mRCThrottle > 1.0f) mRCThrottle = 1.0f; if(mRCThrottle < 0.0f) mRCThrottle = 0.0f; 
 	if(mRCYaw > 1.0f) mRCYaw = 1.0f; if(mRCYaw < 0.0f) mRCYaw = 0.0f; 
 	if(mRCPitch > 1.0f) mRCPitch = 1.0f; if(mRCPitch < 0.0f) mRCPitch = 0.0f; 
@@ -465,7 +505,45 @@ void Application::handleInput(double dt){
 	if(mRCAux2 > 1.0f) mRCAux2 = 1.0f; if(mRCAux2 < 0.0f) mRCAux2 = 0.0f; 
 }
 
-static const glm::vec3 dir[6] = {
+void Application::initJoystick(){
+	core::array<SJoystickInfo> joystickInfo;
+	if(_dev->activateJoysticks(joystickInfo))
+	{
+		printf("Joystick support is enabled and %d joysticks are present!\n", joystickInfo.size());
+
+		for(u32 joystick = 0; joystick < joystickInfo.size(); ++joystick)
+		{
+			printf("Joystick %d: \n", joystick); 
+			printf("\tName: %s\n", joystickInfo[joystick].Name.c_str()); 
+			printf("\tAxes: %d\n", joystickInfo[joystick].Axes); 
+			printf("\tButtons: %d\n", joystickInfo[joystick].Buttons); 
+			printf("\tHat is: "); 
+
+			switch(joystickInfo[joystick].PovHat)
+			{
+			case SJoystickInfo::POV_HAT_PRESENT:
+				printf("present\n"); 
+				break;
+
+			case SJoystickInfo::POV_HAT_ABSENT:
+				printf("absent\n"); 
+				break;
+
+			case SJoystickInfo::POV_HAT_UNKNOWN:
+			default:
+				printf("unknown\n"); 
+				break;
+			}
+		}
+		_joystickEnabled = joystickInfo.size() > 0; 
+	}
+	else
+	{
+		printf("*** No joysticks found\n"); 
+	}
+}
+
+static const glm::vec3 _dir[6] = {
 	glm::vec3(0, 0, -1), 
 	glm::vec3(0, 0, 1),
 	glm::vec3(-1, 0, 0),
@@ -473,6 +551,8 @@ static const glm::vec3 dir[6] = {
 	glm::vec3(0, -1, 0),
 	glm::vec3(0, 1, 0)
 }; 
+
+static glm::vec3 dir[6]; 	
 
 void Application::renderRange(){
 	glm::vec3 pos = _aircraft->getPosition(); 
@@ -494,12 +574,20 @@ void Application::renderRange(){
 	}
 }
 
+#define is_zero(X) (fabsf(X) < FLT_EPSILON)
+#include <time.h>
+
 void Application::scanRange(){
 	glm::vec3 pos = _aircraft->getPosition(); 
 	glm::quat rot = _aircraft->getRotation(); 
 	
 	for(int c = 0; c < 6; c++){
 		glm::vec3 end; 
+		dir[c] = _dir[c]; 
+		if(is_zero(dir[c].x)) dir[c].x = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX) - 0.5f) * 0.3f;
+		if(is_zero(dir[c].y)) dir[c].y = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX) - 0.5f) * 0.3f;
+		if(is_zero(dir[c].z)) dir[c].z = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX) - 0.5f) * 0.3f;
+		dir[c] *= 1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX) - 0.5f) * 0.2f; 
 		clipRay(pos, pos + rot * dir[c] * 2.0f, &end); 
 		_range_scan[c] = glm::length(end - pos); 	
 	}
@@ -574,15 +662,20 @@ void Application::run(){
 
 	irrGUI->drawAll();
 	_drv->endScene();
-	irrDevice->run();
+	_dev->run();
 }
 
 
 bool Application::OnEvent(const SEvent &ev) {
+	if(ev.EventType == EET_JOYSTICK_INPUT_EVENT){
+		_joystickState = ev.JoystickEvent; 
+		return true; ; 
+	}
+
 	if(ev.EventType == EET_KEY_INPUT_EVENT){
 		_key_down[ev.KeyInput.Key] = ev.KeyInput.PressedDown; 
 	}
-
+	
 	if(ev.EventType == EET_KEY_INPUT_EVENT && !ev.KeyInput.PressedDown) {
 		switch(ev.KeyInput.Key) {
 			case KEY_ESCAPE:
