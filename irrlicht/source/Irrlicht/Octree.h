@@ -15,9 +15,9 @@
 	Flags for Octree
 */
 //! use meshbuffer for drawing, enables VBO usage
-#define OCTREE_USE_HARDWARE	false
+#define OCTREE_USE_HARDWARE	true
 //! use visibility information together with VBOs
-#define OCTREE_USE_VISIBILITY false
+#define OCTREE_USE_VISIBILITY true
 //! use bounding box or frustum for calculate polys
 #define OCTREE_BOX_BASED false
 //! bypass full invisible/visible test
