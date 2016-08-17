@@ -38,6 +38,13 @@ irr::scene::ISceneNode *TiltXRotor::createFrameSceneNode(){
 	_frame_node->addChild(_front_arm); 
 	_frame_node->addChild(_back_arm);
 
+/*
+	_cube = scene->addCubeSceneNode(0.5); 
+	_cube->setMaterialFlag(video::EMF_WIREFRAME, true);
+	_cube->setPosition(vector3df(0, 0, 0)); 
+	*/
+	//cube->setScale(vector3df(0.5, 0.5, 0.5)); 
+
 	return _frame_node; 
 }
 
@@ -105,3 +112,38 @@ void TiltXRotor::setOutput(unsigned int id, float value){
 		GenericXRotor::setOutput(id, value); 
 	}
 }
+
+void TiltXRotor::update(float dt){
+	GenericXRotor::update(dt); 
+
+#if 0
+	glm::vec3 gyr = getGyro(); 
+	glm::vec3 pos = getPosition(); 
+	glm::quat rot = getRotation(); 
+	glm::vec3 acc = getAccel(); 
+
+	//state.gyro[0] = -gyro.z; state.gyro[1] = -gyro.x; state.gyro[2] = gyro.y; 
+	//state.accel[0] = accel.z; state.accel[1] = accel.x; state.accel[2] = -accel.y; 
+
+	_att.input_measured_gyro_rates(matrix::Vector3f(-gyr.z, -gyr.x, gyr.y)); 
+	_att.input_measured_acceleration(matrix::Vector3f(acc.z, acc.x, -acc.y)); 
+	_att.update(dt); 	
+	
+	matrix::Quaternion<float> q = _att.get_estimated_orientation(); 
+
+	glm::quat dq = glm::quat(
+		1.0f - (gyr.x*gyr.x + gyr.y*gyr.y + gyr.z*gyr.z), 
+		gyr.x, gyr.y, gyr.z); 
+	q = q * dq; 
+	glm::quat w = glm::quat(0, gyr.x, gyr.y, gyr.z); 
+	q = glm::normalize(q + (q * w * 0.5f) * dt); 
+
+	vector3df euler; 
+	quaternion(q(1), q(2), q(3), q(0)).toEuler(euler);  
+	//quaternion(q.x, q.y, q.z, q.w).toEuler(euler);  
+
+	_cube->setPosition(vector3df(pos.x, pos.y, pos.z)); 
+	_cube->setRotation(euler * RADTODEG); 
+	#endif
+}
+

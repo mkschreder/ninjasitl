@@ -26,6 +26,7 @@
 
 #include "Socket.h"
 #include "Aircraft.h"
+#include "OdometryReplay.h"
 
 using namespace irr;
 using namespace core;
@@ -48,13 +49,11 @@ public:
 	void CreateStartScene();
 	btRigidBody * CreateBox(const btVector3 &TPosition, const vector3df &TScale, btScalar TMass, const char *texture = "rust0.jpg");
 	void CreateSphere(const btVector3 &TPosition, btScalar TRadius, btScalar TMass);
-	void updatePhysics(float dt);
-	void updateCamera(); 
-	void UpdateRender(btRigidBody *TObject);
-	void updateNetwork(double dt); 
-	void ClearObjects();
 	int GetRandInt(int TMax) { return rand() % TMax; }
 	void run();
+	
+	int loadMap(const char *filename); 
+	int loadReplay(const char *filename); 
 
 	virtual bool OnEvent(const SEvent &TEvent);
 	
@@ -110,19 +109,29 @@ private:
 	void handleInputKeyboard(double dt); 
 	void handleInputJoystick(double dt); 
 
+	void updatePhysics(float dt);
+	void updateCamera(); 
+	void UpdateRender(btRigidBody *TObject);
+	void updateNetwork(double dt); 
+	void ClearObjects();
+	void updateReplay(float dt); 
+
 	void scanRange(void); 
 	void renderRange(void); 
 
 	glm::vec3 get_player_start(IQ3LevelMesh *level); 
 	void add_triangle_mesh(IMesh *mesh, float scale); 
 
+	void loadMediaArchives(); 
 private:
 	SEvent::SJoystickEvent _joystickState; 
 	bool _joystickEnabled; 
 
 	bool _calibration; 
 	uint32_t _sent_count; 
-	
+	bool _replay_mode; 
+	OdometryReplay _replay; 
+
 	float _range_scan[6]; 
 	
 	int _camera_mode; 

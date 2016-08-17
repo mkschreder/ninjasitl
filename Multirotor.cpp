@@ -62,9 +62,11 @@ btRigidBody *Multirotor::createFrameRigidBody(){
 	info.m_friction = 0.4f;
 
 	btRigidBody *frame = new btRigidBody(info);
-	
+
+	// linear + angular damping
 	frame->setDamping(0.05, 0.1); 
 	frame->setActivationState(DISABLE_DEACTIVATION); 
+	//frame->setActivationState(DISABLE_SIMULATION);
 
 	_application->getDynamicsWorld()->addRigidBody(frame, COLLIDE_FRAME, COLLIDE_WORLD); 
 
@@ -98,6 +100,7 @@ void Multirotor::render(){
 	irr::video::IVideoDriver *drv = _application->getVideoDriver(); 
 
 	glm::quat rot = getRotation();
+	glm::vec3 gyr = getGyro();
 	glm::vec3 pos = getPosition(); // + rot * glm::vec3(0, 0.2, 0);
 	glm::vec3 acc = rot * getAccel();  
 	glm::vec3 mag = (rot * getMagneticField()) * 0.001f;  
@@ -120,6 +123,7 @@ void Multirotor::render(){
 			vector3df(hit.x, hit.y, hit.z), 
 			SColor( 255, 255, 0, 0 ));
 	}*/
+	drv->setTransform(irr::video::ETS_WORLD, irr::core::IdentityMatrix);
 
 	drv->draw3DLine(vector3df(pos.x, pos.y, pos.z),
 		vector3df(pos.x + ax.x, pos.y + ax.y, pos.z + ax.z), 

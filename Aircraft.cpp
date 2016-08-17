@@ -26,6 +26,12 @@ using namespace core;
 Aircraft::Aircraft(Application *app) : 
 	_application(app){
 
+	_velocity = glm::vec3(0, 0, 0); 
+	_linear_acceleration = glm::vec3(0, 0, 0); 
+	_accel = glm::vec3(0, 0, 0); 
+	_mag = glm::vec3(0, 0, 0); 
+	_location = glm::ivec3(0, 0, 0); 
+	_home = glm::ivec3(0, 0, 0); 
 }
  
 void Aircraft::init(){

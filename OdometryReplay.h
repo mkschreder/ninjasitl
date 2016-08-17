@@ -15,52 +15,30 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
+#pragma once
 
-#include "Application.h"
-#include "time.h"
-#include <unistd.h>
+#include <glm/glm.hpp>
+#include <glm/gtx/quaternion.hpp>
+#include <vector>
 
-static Application *_app;
-
-// Event receiver
-class EventReceiverClass : public IEventReceiver  {
-
+class OdometryReplay {
 public:
-	virtual bool OnEvent(const SEvent &TEvent)  {
-		_app->OnEvent(TEvent);
-		return false; 
-	}
-};
-
-int main(int argc, char **argv) {
-	int c; 
-	const char *map = "q3dmp23.bsp"; 
-	const char *replay_file = NULL; 
-
-	while((c = getopt(argc, argv, "m:r:")) != -1){
-		switch(c){
-			case 'm': 
-				map = optarg; 
-				break; 
-			case 'r':	
-				replay_file = optarg; 
-				break; 
-		}
-	}
-
-	_app = new Application();
-
-	_app->loadMap(map); 
-
-	if(replay_file){
-		_app->loadReplay(replay_file); 
-	}
-
-	// arm 
-	while(1) {
-		_app->run(); 
-	}
-
-	return 0; 
-}
-
+	OdometryReplay(); 
+	int load(const char *file); 
+	bool step(float dt); 
+	glm::vec3 getPosition(); 
+	glm::quat getRotation(); 
+private: 
+	class KeyFrame {
+	public: 
+		unsigned int id;
+		unsigned long long time; 
+		glm::vec3 pos;
+		glm::quat rot; 
+	}; 
+	unsigned long long _time; 
+	std::vector<KeyFrame> _frames; 
+	std::vector<KeyFrame>::iterator _current_frame; 
+	glm::vec3 _current_pos; 
+	glm::quat _current_rot; 
+}; 

@@ -23,6 +23,8 @@ public:
 
 	virtual void setOutput(unsigned int id, float value) override ; 
 	virtual void onCollision(const btCollisionObject *a, const btCollisionObject *b) override; 
+
+	virtual void update(float dt) override; 
 protected: 
 	virtual btRigidBody *createFrameRigidBody() override; 
 	virtual irr::scene::ISceneNode *createFrameSceneNode() override; 
@@ -32,4 +34,6 @@ private:
 	irr::scene::IAnimatedMeshSceneNode *_front_arm, *_back_arm; 
 
 	std::vector<btRigidBody*> _props; 
+
+	//irr::scene::ISceneNode *_cube; 
 }; 

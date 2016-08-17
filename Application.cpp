@@ -24,6 +24,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 #include <stdio.h>
+#include <glob.h>
 
 #include "GenericXRotor.h"
 #include "TiltXRotor.h"
@@ -34,6 +35,7 @@
 #define Q3_WORLD_SCALE 0.015f
 
 struct server_packet {
+	unsigned long long time; 
 	uint8_t mode; 
 	uint8_t frame; 
 	int16_t servo[8]; 
@@ -194,21 +196,60 @@ Application::Application()
 
 	initJoystick(); 
 
-	// load a map
-	_dev->getFileSystem()->addFileArchive("base");
-	_dev->getFileSystem()->addFileArchive("base/pak0.pk3");
-	//_dev->getFileSystem()->addFileArchive("base/map-20kdm2.pk3");
-	//_dev->getFileSystem()->addFileArchive("base/q3dmp29.pk3");
-	_dev->getFileSystem()->addFileArchive("base/q3dmp23.pk3");
-	//_dev->getFileSystem()->addFileArchive("base/q3dmp29.pk3");
-	//_dev->getFileSystem()->addFileArchive("base/q3dmp23.pk3");
+	loadMediaArchives(); 
+	
+	// Initialize bullet
+	CollisionConfiguration = new btDefaultCollisionConfiguration();
+	BroadPhase = new btAxisSweep3(btVector3(-1000, -1000, -1000), btVector3(1000, 1000, 1000));
+	Dispatcher = new btCollisionDispatcher(CollisionConfiguration);
+	Solver = new btSequentialImpulseConstraintSolver();
+	World = new btDiscreteDynamicsWorld(Dispatcher, BroadPhase, Solver, CollisionConfiguration);
+	World->setGravity(btVector3(0, -9.82, 0)); 
+	World->setInternalTickCallback(_dynamicsTickCallback); 
+	World->setWorldUserInfo(this); 
 
-	//scene::IQ3LevelMesh *mesh = (scene::IQ3LevelMesh*)_scene->getMesh("q3dmp29.bsp"); 
-	//scene::IQ3LevelMesh *mesh = (scene::IQ3LevelMesh*)_scene->getMesh("q3dmp29.bsp"); 
-	scene::IQ3LevelMesh *mesh = (scene::IQ3LevelMesh*)_scene->getMesh("q3dmp23.bsp"); 
+	// Add camera
+	//mCamera = _scene->addCameraSceneNodeFPS(0, 100, 0.01);
+	mCamera = _scene->addCameraSceneNode();
+	mCamera->setNearValue(0.01); 
+	mCamera->setFarValue(1000.0); 
+	mCamera->setRotation(vector3df(0, 0, 0)); 
+	//Camera->setUpVector(vector3df(0, 0, 1.0)); 
+	//Camera->setTarget(vector3df(1, 0, 0));
+	
+	// Preload textures
+	_drv->getTexture("ice0.jpg");
+	_drv->getTexture("rust0.jpg");
+
+	// Create the initial scene
+	_scene->addLightSceneNode(0, core::vector3df(2, 5, -2), SColorf(4, 4, 4, 1));
+	_scene->addLightSceneNode(0, core::vector3df(2, -5, -2), SColorf(4, 4, 4, 1));
+	CreateStartScene();
+
+	// Main loop
+	TimeStamp = irrTimer->getTime();
+
+	_aircraft = new TiltXRotor(this);
+	_aircraft->init(); 
+	
+	_aircraft->setPosition(_player_start + glm::vec3(0, 4, 0)); 
+	_aircraft->setHomeLocation(glm::vec3(149.165230, 584, -35.363261)); 
+
+	// platform
+	CreateBox(btVector3(_player_start.x, _player_start.y-3, _player_start.z), vector3df(5.0f, 1.5f, 5.0f), 0.0f, "ice0.jpg");
+	//sock.bind("127.0.0.1", 9002); 
+	//sock.set_blocking(false); 
+
+	::fprintf(stdout, "QuadSim started!\n"); 
+}
+
+int Application::loadMap(const char *filename){
+	// load a map
+	scene::IQ3LevelMesh *mesh = (scene::IQ3LevelMesh*)_scene->getMesh(filename); 
+
 	if(!mesh){
 		printf("could not load map mesh!\n"); 
-		exit(0); 
+		return -1; 
 	}
 
 	_scene->getParameters()->setAttribute(scene::ALLOW_ZWRITE_ON_TRANSPARENT, true); 
@@ -242,53 +283,33 @@ Application::Application()
 	node->setTriangleSelector(sel); 
 	sel->drop(); 
 
-	// Initialize bullet
-	CollisionConfiguration = new btDefaultCollisionConfiguration();
-	BroadPhase = new btAxisSweep3(btVector3(-1000, -1000, -1000), btVector3(1000, 1000, 1000));
-	Dispatcher = new btCollisionDispatcher(CollisionConfiguration);
-	Solver = new btSequentialImpulseConstraintSolver();
-	World = new btDiscreteDynamicsWorld(Dispatcher, BroadPhase, Solver, CollisionConfiguration);
-	World->setGravity(btVector3(0, -9.82, 0)); 
-	World->setInternalTickCallback(_dynamicsTickCallback); 
-	World->setWorldUserInfo(this); 
-
 	add_triangle_mesh(additional_mesh, Q3_WORLD_SCALE); 
 	add_triangle_mesh(geom, Q3_WORLD_SCALE); 
 	_player_start = get_player_start(mesh) * Q3_WORLD_SCALE; 
-	// Add camera
-	//mCamera = _scene->addCameraSceneNodeFPS(0, 100, 0.01);
-	mCamera = _scene->addCameraSceneNode();
-	mCamera->setNearValue(0.01); 
-	mCamera->setFarValue(1000.0); 
+
 	mCamera->setPosition(vector3df(_player_start.x, _player_start.y, _player_start.z));
-	mCamera->setRotation(vector3df(0, 0, 0)); 
-	//Camera->setUpVector(vector3df(0, 0, 1.0)); 
-	//Camera->setTarget(vector3df(1, 0, 0));
-	
-	// Preload textures
-	_drv->getTexture("ice0.jpg");
-	_drv->getTexture("rust0.jpg");
 
-	// Create the initial scene
-	_scene->addLightSceneNode(0, core::vector3df(2, 5, -2), SColorf(4, 4, 4, 1));
-	_scene->addLightSceneNode(0, core::vector3df(2, -5, -2), SColorf(4, 4, 4, 1));
-	CreateStartScene();
+	return 0; 
+}
 
-	// Main loop
-	TimeStamp = irrTimer->getTime();
+int Application::loadReplay(const char *filename){
+	if(_replay.load(filename) < 0){
+		return -1; 
+	}
+	return 0; 
+}
 
-	_aircraft = new TiltXRotor(this);
-	_aircraft->init(); 
-	
-	_aircraft->setPosition(_player_start + glm::vec3(0, 4, 0)); 
-	_aircraft->setHomeLocation(glm::vec3(149.165230, 584, -35.363261)); 
+void Application::loadMediaArchives(){
+	glob_t results; 
+	_dev->getFileSystem()->addFileArchive("base");
 
-	// platform
-	CreateBox(btVector3(_player_start.x, _player_start.y-3, _player_start.z), vector3df(5.0f, 1.5f, 5.0f), 0.0f, "ice0.jpg");
-	//sock.bind("127.0.0.1", 9002); 
-	//sock.set_blocking(false); 
+	glob("base/pak*.pk3", 0, 0, &results); 
+	glob("base/[!p][!a][!k]*.pk3", GLOB_APPEND, 0, &results); 
 
-	::fprintf(stdout, "QuadSim started!\n"); 
+	for(int c = 0; c < results.gl_pathc; c++){
+		printf("Loading archive %s\n", results.gl_pathv[c]); 
+		_dev->getFileSystem()->addFileArchive(results.gl_pathv[c]);
+	}
 }
 
 void Application::onCollision(const btCollisionObject *a, const btCollisionObject *b){
@@ -617,7 +638,7 @@ void Application::updateCamera(){
 		} break; 
 		case CAMERA_FIRST_PERSON: {
 			glm::vec3 cp = pos + rot * glm::vec3(0, 0.5, 0.5); 
-			glm::vec3 ct = pos + rot * glm::vec3(0, 0.6, 1.0); 
+			glm::vec3 ct = pos + rot * glm::vec3(0, 0.5, 1.0); 
 			glm::vec3 cu = rot * glm::vec3(0, 1.0, 0.0); 
 			mCamera->setPosition(vector3df(cp.x, cp.y, cp.z)); 
 			mCamera->setTarget(vector3df(ct.x, ct.y, ct.z));
@@ -626,6 +647,19 @@ void Application::updateCamera(){
 		} break; 
 		default: 
 			break; 
+	}
+}
+
+void Application::updateReplay(float dt){
+	if(!_replay_mode) return; 
+	if(_replay.step(dt)){
+		glm::vec3 pos = _replay.getPosition(); 
+		glm::quat rot = _replay.getRotation(); 
+
+		//printf("keyframe: pos(%f %f %f)\n", pos.x, pos.y, pos.z); 
+
+		_aircraft->setPosition(pos); 
+		//_aircraft->setRotation(rot); 
 	}
 }
 
@@ -642,6 +676,7 @@ void Application::run(){
 		updateNetwork(dt); 
 		updateCamera(); 
 		handleInput(dt); 
+		updateReplay(dt); 
 
 		_aircraft->update(dt);
 
@@ -657,8 +692,8 @@ void Application::run(){
 	_scene->drawAll();
 	
 	// debug
-	_aircraft->render(); 
-	renderRange(); 
+	//_aircraft->render(); 
+	//renderRange(); 
 
 	irrGUI->drawAll();
 	_drv->endScene();
@@ -681,6 +716,9 @@ bool Application::OnEvent(const SEvent &ev) {
 			case KEY_ESCAPE:
 				Done = true;
 			break;
+			case KEY_KEY_R: 
+				_replay_mode = true; 
+				break; 
 			case KEY_KEY_Q: 
 				_aircraft->setPosition(_player_start + glm::vec3(0, 4, 0)); 
 				_aircraft->setAngularVelocity(glm::vec3(0, 0, 0)); 
@@ -851,6 +889,10 @@ void Application::updateNetwork(double dt){
 
 	//if(sock.recv(&pkt, sizeof(pkt), 1) == sizeof(pkt)){
 	memcpy(&pkt, _shmin, sizeof(server_packet)); 
+
+	// check if we have a valid and up to date packet
+	if(pkt.time == 0 || (time(NULL) - pkt.time) > 1) return;  
+
 	float roll = pkt.euler[0]; 
 	float pitch = pkt.euler[1]; 
 	float yaw = pkt.euler[2]; 
