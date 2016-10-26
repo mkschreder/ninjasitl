@@ -426,15 +426,20 @@ bool Application::clipRay(const glm::vec3 &_start, const glm::vec3 &_end, glm::v
 }
 
 void Application::handleInputJoystick(double dt){
-	float thr = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_Y] / 32767.0f; 
+	float thr = -_joystickState.Axis[SEvent::SJoystickEvent::AXIS_Y] / 32767.0f; 
 	float yaw = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_X] / 32767.0f; 
-	float pit = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_Z] / 32767.0f; 
-	float rll = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_R] / 32767.0f; 
+	float pit = -_joystickState.Axis[SEvent::SJoystickEvent::AXIS_R] / 32767.0f; 
+	float rll = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_Z] / 32767.0f; 
 	float u = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_U] / 32767.0f; 
 	float v = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_V] / 32767.0f; 
 	
 	//printf("JOYSTICK: %f %f %f %f %f %f\n", thr, yaw, pit, rll, u, v); 
 
+	mRCThrottle = (1.0f + thr) * 0.5f;
+	mRCYaw = (1.0f + yaw) * 0.5f;
+	mRCPitch = (1.0f + pit) * 0.5f;
+	mRCRoll = (1.0f + rll) * 0.5f;
+/*
 	// Throttle
 	if(_key_down[KEY_KEY_W]){
 		mRCThrottle += dt * 0.6; 	
@@ -457,6 +462,7 @@ void Application::handleInputJoystick(double dt){
 	
 	mRCPitch = -thr * 0.5f + 0.5f; 
 	mRCRoll = yaw * 0.5f + 0.5f; 
+	*/
 }
 
 void Application::handleInputKeyboard(double dt){
@@ -598,6 +604,12 @@ void Application::renderRange(){
 #define is_zero(X) (fabsf(X) < FLT_EPSILON)
 #include <time.h>
 
+#include <random>
+#include <chrono>
+unsigned seed = std::chrono::system_clock::now().time_since_epoch().count();
+std::default_random_engine rng(seed);   
+std::normal_distribution<double> norm_dist(0.0,1.0);
+
 void Application::scanRange(){
 	glm::vec3 pos = _aircraft->getPosition(); 
 	glm::quat rot = _aircraft->getRotation(); 
@@ -608,7 +620,12 @@ void Application::scanRange(){
 		if(is_zero(dir[c].x)) dir[c].x = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX) - 0.5f) * 0.3f;
 		if(is_zero(dir[c].y)) dir[c].y = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX) - 0.5f) * 0.3f;
 		if(is_zero(dir[c].z)) dir[c].z = (static_cast <float> (rand()) / static_cast <float> (RAND_MAX) - 0.5f) * 0.3f;
-		dir[c] *= 1.0f + (static_cast <float> (rand()) / static_cast <float> (RAND_MAX) - 0.5f) * 0.2f; 
+
+		// add noise 
+		float noisen = norm_dist(rng); 
+		dir[c] += noisen * 0.1f; 
+		if(rand() % 10 > 5) dir[c] *= 0.1; 
+
 		clipRay(pos, pos + rot * dir[c] * 2.0f, &end); 
 		_range_scan[c] = glm::length(end - pos); 	
 	}
@@ -656,7 +673,7 @@ void Application::updateReplay(float dt){
 		glm::vec3 pos = _replay.getPosition(); 
 		glm::quat rot = _replay.getRotation(); 
 
-		//printf("keyframe: pos(%f %f %f)\n", pos.x, pos.y, pos.z); 
+		printf("keyframe: pos(%f %f %f)\n", pos.x, pos.y, pos.z); 
 
 		_aircraft->setPosition(pos); 
 		//_aircraft->setRotation(rot); 
@@ -692,9 +709,43 @@ void Application::run(){
 	_scene->drawAll();
 	
 	// debug
-	//_aircraft->render(); 
-	//renderRange(); 
+	_aircraft->render(); 
+	renderRange(); 
+	gui::IGUIFont* font = _dev->getGUIEnvironment()->getBuiltInFont();
 
+	if(_key_down[KEY_KEY_W])
+		font->draw(L"THROTTLE UP", 
+			core::rect<s32>(10,10,300,50),
+			video::SColor(255,255,255,255));
+	if(_key_down[KEY_KEY_S])
+		font->draw(L"THROTTLE DOWN", 
+			core::rect<s32>(10,20,300,50),
+			video::SColor(255,255,255,255));
+	if(_key_down[KEY_KEY_A])
+		font->draw(L"YAW LEFT", 
+			core::rect<s32>(10,30,300,50),
+			video::SColor(255,255,255,255));
+	if(_key_down[KEY_KEY_D])
+		font->draw(L"YAW RIGHT", 
+			core::rect<s32>(10,40,300,50),
+			video::SColor(255,255,255,255));
+	if(_key_down[KEY_UP])
+		font->draw(L"PITCH FORWARD", 
+			core::rect<s32>(10,50,300,50),
+			video::SColor(255,255,255,255));
+	if(_key_down[KEY_DOWN])
+		font->draw(L"PITCH BACKWARD", 
+			core::rect<s32>(10,60,300,50),
+			video::SColor(255,255,255,255));
+	if(_key_down[KEY_LEFT])
+		font->draw(L"ROLL LEFT", 
+			core::rect<s32>(10,70,300,50),
+			video::SColor(255,255,255,255));
+	if(_key_down[KEY_RIGHT])
+		font->draw(L"ROLL RIGHT", 
+			core::rect<s32>(10,80,300,50),
+			video::SColor(255,255,255,255));
+	
 	irrGUI->drawAll();
 	_drv->endScene();
 	_dev->run();
@@ -891,7 +942,12 @@ void Application::updateNetwork(double dt){
 	memcpy(&pkt, _shmin, sizeof(server_packet)); 
 
 	// check if we have a valid and up to date packet
-	if(pkt.time == 0 || (time(NULL) - pkt.time) > 1) return;  
+	#if 0
+	if(pkt.time == 0 || (time(NULL) - pkt.time) > 1) {
+		printf("Invalid packet timestamp!"); 
+		return;  
+	}
+	#endif
 
 	float roll = pkt.euler[0]; 
 	float pitch = pkt.euler[1]; 
