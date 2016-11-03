@@ -975,9 +975,36 @@ void Application::UpdateRender(btRigidBody *TObject) {
 }
 
 void Application::updateNetwork(double dt){
-	struct server_packet pkt; 
-
 	static glm::vec3 angles(0, 0, 0); 
+
+	//printf("servo(%d %d %d %d) rpy(%f %f %f)\n", pkt.servo[0], pkt.servo[1], pkt.servo[2], pkt.servo[3], roll, pitch, yaw); 
+	for(unsigned c = 0; c < 8; c++){
+		_aircraft->setOutput(c, (sitl->read_pwm(c) - 1000) / 1000.0f); 
+	}
+
+	glm::vec3 pos = _aircraft->getPosition(); 
+	glm::quat rot = _aircraft->getRotation(); 
+	glm::vec3 accel = _aircraft->getAccel(); 
+	glm::ivec3 loc = _aircraft->getLocation(); 
+	glm::vec3 mag = _aircraft->getMagneticField();
+	glm::vec3 vel = _aircraft->getVelocity(); 
+	glm::vec3 gyro = _aircraft->getGyro(); 
+	glm::vec3 euler = glm::eulerAngles(rot); 
+
+	sitl->write_gyro(-gyro.z, -gyro.x, gyro.y);
+	sitl->write_accel(accel.z, accel.x, -accel.y);
+
+	//state.pos[0] = pos.z; state.pos[1] = pos.x; state.pos[2] = -pos.y; 
+	//state.loc[0] = loc.z; state.loc[1] = loc.x; state.loc[2] = loc.y; 
+	//state.mag[0] = mag.z; state.mag[1] = mag.x; state.mag[2] = -mag.y; 
+	//state.vel[0] = vel.z; state.vel[1] = vel.x; state.vel[2] = -vel.y; 
+
+	sitl->write_rc(0, 1000 + mRCRoll * 1000);
+	sitl->write_rc(1, 1000 + mRCPitch * 1000);
+	sitl->write_rc(2, 1000 + mRCThrottle * 1000);
+	sitl->write_rc(3, 1000 + mRCYaw * 1000);
+	sitl->write_rc(4, 1000 + mRCAux1 * 1000);
+	sitl->write_rc(5, 1000 + mRCAux2 * 1000);
 
 	//if(sock.recv(&pkt, sizeof(pkt), 1) == sizeof(pkt)){
 	//memcpy(&pkt, _shmin, sizeof(server_packet)); 

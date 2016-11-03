@@ -62,7 +62,7 @@ struct fc_sitl_client_interface {
 };
 
 struct fc_sitl_server_interface {
-	void (*read_gyro)(struct fc_sitl_server_interface *self, float gyro[3]);
+	struct fc_sitl_client_interface *client;
 };
 
 #ifdef __cplusplus

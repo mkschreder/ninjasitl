@@ -16,6 +16,10 @@ class SITLInterface {
 	friend SITLInterface* _load_sitl(const char *dlname);
 public:
 	static SITLInterface *create(sitl_controller_type_t type);
+	void write_accel(float x, float y, float z);
+	void write_gyro(float x, float y, float z);
+	void write_rc(uint8_t chan, float value);
+	uint16_t read_pwm(uint8_t chan);
 protected:
 	SITLInterface(struct fc_sitl_client_interface *client);
 	uint16_t read_rc(uint8_t chan);

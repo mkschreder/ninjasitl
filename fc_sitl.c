@@ -21,12 +21,12 @@
 #include "fc_sitl.h"
 
 struct fc_sitl_server_interface *fc_sitl_create_instance(const char *dll, struct fc_sitl_client_interface *client){
-	void *dl = dlopen(dll, RTLD_NOW | RTLD_LOCAL);
+	void *dl = dlopen(dll, RTLD_LAZY|RTLD_LOCAL);
 	if(dl == NULL){
 		printf("could not load shared library: %s\n", dlerror());
 		return NULL;
 	}
-	struct fc_sitl_server_interface *(*create)(struct fc_sitl_client_interface *) = dlsym(dl, "fc_sitl_create_instance");
+	struct fc_sitl_server_interface *(*create)(struct fc_sitl_client_interface *) = dlsym(dl, "fc_sitl_create_aircraft");
 	if(create == NULL){
 		printf("library is not a sitl module: %s\n", dlerror());
 		return NULL;
@@ -35,7 +35,9 @@ struct fc_sitl_server_interface *fc_sitl_create_instance(const char *dll, struct
 	return server;
 }
 
+/*
 void fc_sitl_write_controls(struct fc_sitl *self, struct fc_sitl_rc_channels *rc){
 
 }
+*/
 
