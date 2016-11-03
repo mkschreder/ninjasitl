@@ -19,6 +19,7 @@
 #include <btBulletDynamicsCommon.h>
 
 #include "Application.h"
+#include "SITLInterface.h"
 
 #include <sys/types.h>
 #include <sys/ipc.h>
@@ -184,8 +185,11 @@ Application::Application()
 	_spin = 0; 
 	_angle = 0; 
 
-	initSharedMemory(); 
-	
+	if(initSITL() != 0){
+		fprintf(stderr, "FATAL: could not initialize sitl module!\n");
+		exit(1);
+	}
+
 	_dev = createDevice(video::EDT_OPENGL, dimension2d<u32>(640, 480), 32, false, false, false, this);
 	irrGUI = _dev->getGUIEnvironment();
 	irrTimer = _dev->getTimer();
@@ -214,6 +218,7 @@ Application::Application()
 	mCamera->setNearValue(0.01); 
 	mCamera->setFarValue(1000.0); 
 	mCamera->setRotation(vector3df(0, 0, 0)); 
+	mCamera->setFOV(glm::radians(90.0f)); 
 	//Camera->setUpVector(vector3df(0, 0, 1.0)); 
 	//Camera->setTarget(vector3df(1, 0, 0));
 	
@@ -236,7 +241,8 @@ Application::Application()
 	_aircraft->setHomeLocation(glm::vec3(149.165230, 584, -35.363261)); 
 
 	// platform
-	CreateBox(btVector3(_player_start.x, _player_start.y-3, _player_start.z), vector3df(5.0f, 1.5f, 5.0f), 0.0f, "ice0.jpg");
+	//CreateBox(btVector3(_player_start.x, _player_start.y-3, _player_start.z), vector3df(5.0f, 1.5f, 5.0f), 0.0f, "ice0.jpg");
+	CreateBox(btVector3(_player_start.x, _player_start.y-3, _player_start.z), vector3df(500.0f, 1.5f, 500.0f), 0.0f, "ice0.jpg");
 	//sock.bind("127.0.0.1", 9002); 
 	//sock.set_blocking(false); 
 
@@ -281,11 +287,42 @@ int Application::loadMap(const char *filename){
 	}
 	ITriangleSelector *sel = _scene->createOctreeTriangleSelector(geom, node, 128); 
 	node->setTriangleSelector(sel); 
-	sel->drop(); 
 
 	add_triangle_mesh(additional_mesh, Q3_WORLD_SCALE); 
 	add_triangle_mesh(geom, Q3_WORLD_SCALE); 
-	_player_start = get_player_start(mesh) * Q3_WORLD_SCALE; 
+
+	// add terrain scene node
+    scene::ITerrainSceneNode* terrain = _scene->addTerrainSceneNode(
+        "base/terrain-heightmap.bmp",
+        0,                  // parent node
+        -1,                 // node id
+        core::vector3df(0.f, 0.f, 0.f),     // position
+        core::vector3df(0.f, 0.f, 0.f),     // rotation
+        core::vector3df(40.f, 4.4f, 40.f),  // scale
+        video::SColor ( 255, 255, 255, 255 ),   // vertexColor
+        5,                  // maxLOD
+        scene::ETPS_17,             // patchSize
+        4                   // smoothFactor
+        );
+
+    terrain->setMaterialFlag(video::EMF_LIGHTING, false);
+
+    terrain->setMaterialTexture(0,
+            _drv->getTexture("base/terrain-texture.jpg"));
+    terrain->setMaterialTexture(1,
+            _drv->getTexture("base/terrain-detail.jpg"));
+    terrain->setTriangleSelector(sel);  
+    terrain->setMaterialType(video::EMT_DETAIL_MAP);
+
+    terrain->scaleTexture(1.0f, 20.0f);
+
+	sel->drop();
+
+	_player_start = get_player_start(mesh);// * Q3_WORLD_SCALE; 
+
+	//_aircraft->setPosition(_player_start + glm::vec3(0, 4, 0)); 
+
+	printf("Player start found at: %f %f %f\n", _player_start.x, _player_start.y, _player_start.z);
 
 	mCamera->setPosition(vector3df(_player_start.x, _player_start.y, _player_start.z));
 
@@ -304,6 +341,7 @@ void Application::loadMediaArchives(){
 	_dev->getFileSystem()->addFileArchive("base");
 
 	glob("base/pak*.pk3", 0, 0, &results); 
+	glob("base/map*.pk3", GLOB_APPEND, 0, &results); 
 	glob("base/[!p][!a][!k]*.pk3", GLOB_APPEND, 0, &results); 
 
 	for(int c = 0; c < results.gl_pathc; c++){
@@ -316,7 +354,11 @@ void Application::onCollision(const btCollisionObject *a, const btCollisionObjec
 	_aircraft->onCollision(a, b); 
 }
 
-void Application::initSharedMemory(){
+int Application::initSITL(){
+	sitl = SITLInterface::create(SITL_NINJAFLIGHT);
+	if(!sitl) return -1;
+	return 0;
+#if 0
 	int out = shmget(9005, 0, 0666); 
 	int in = shmget(9003, 0, 0666); 
 	
@@ -362,8 +404,7 @@ void Application::initSharedMemory(){
 
 	// clear the input memory
 	memset(_shmin, 0, sizeof(server_packet)); 
-
-	printf("Shared memory initialized.\n");
+#endif
 }
 
 Application::~Application(){
@@ -939,7 +980,7 @@ void Application::updateNetwork(double dt){
 	static glm::vec3 angles(0, 0, 0); 
 
 	//if(sock.recv(&pkt, sizeof(pkt), 1) == sizeof(pkt)){
-	memcpy(&pkt, _shmin, sizeof(server_packet)); 
+	//memcpy(&pkt, _shmin, sizeof(server_packet)); 
 
 	// check if we have a valid and up to date packet
 	#if 0
@@ -949,6 +990,7 @@ void Application::updateNetwork(double dt){
 	}
 	#endif
 
+#if 0
 	float roll = pkt.euler[0]; 
 	float pitch = pkt.euler[1]; 
 	float yaw = pkt.euler[2]; 
@@ -1012,7 +1054,7 @@ void Application::updateNetwork(double dt){
 	state.rcin[5] = mRCAux2; 
 
 	memcpy(state.range, _range_scan, min(sizeof(state.range), sizeof(_range_scan))); 
-
+#endif
 #if 0 
 	printf("sending: acc(%f %f %f) gyr(%f %f %f) mag(%f %f %f) vel(%f %f %f) loc(%d %d %d) rc(%f %f %f %f)\n", 
 		state.accel[0], state.accel[1], state.accel[2],
@@ -1022,7 +1064,7 @@ void Application::updateNetwork(double dt){
 		state.loc[0], state.loc[1], state.loc[2],
 		state.rcin[0], state.rcin[1], state.rcin[2], state.rcin[3]); 
 #endif
-	memcpy(_shmout, &state, sizeof(state)); 
+	//memcpy(_shmout, &state, sizeof(state)); 
 }
 
 // Removes all objects from the world

@@ -24,7 +24,6 @@
 #include <glm/glm.hpp>
 #include <glm/gtx/vector_angle.hpp>
 
-#include "Socket.h"
 #include "Aircraft.h"
 #include "OdometryReplay.h"
 
@@ -34,6 +33,8 @@ using namespace scene;
 using namespace video;
 using namespace io;
 using namespace gui;
+
+class SITLInterface;
 
 enum {
 	COLLIDE_WORLD = (1 << 0), 
@@ -102,7 +103,7 @@ private:
 		CAMERA_MODE_COUNT
 	}; 
 
-	void initSharedMemory(); 
+	int initSITL(); 
 	void initJoystick(); 
 
 	void handleInput(double dt); 
@@ -138,6 +139,7 @@ private:
 	glm::vec3 _player_start; 
 
 	// shared memory stuff
-	char *_shmout; char *_shmin; 
+	SITLInterface *sitl;
+	//char *_shmout; char *_shmin; 
 };
 

@@ -62,10 +62,11 @@ btRigidBody *TiltXRotor::createFrameRigidBody(){
 		btSphereShape *shape = new btSphereShape(0.1f); 
 
 		btVector3 inertia;
-		shape->calculateLocalInertia(0.1, inertia);
+		float mass = 0.1f;
+		shape->calculateLocalInertia(mass, inertia);
 
 		// Create the rigid body object
-		btRigidBody::btRigidBodyConstructionInfo info(0.1, ms, shape, inertia); //motion state would actually be non-null in most real usages
+		btRigidBody::btRigidBodyConstructionInfo info(mass, ms, shape, inertia); //motion state would actually be non-null in most real usages
 		btRigidBody *prop = new btRigidBody(info);
 	
 		btFixedConstraint *cons = new btFixedConstraint(*frame, *prop, btTransform::getIdentity(), tr); 

@@ -50,7 +50,7 @@ btRigidBody *Multirotor::createFrameRigidBody(){
 
 	btDefaultMotionState *ms = new btDefaultMotionState(tr);
 
-	btBoxShape *shape = new btBoxShape(btVector3(0.4f, 0.1f, 0.4f)); 
+	btBoxShape *shape = new btBoxShape(btVector3(0.2f, 0.05f, 0.2f)); 
 
 	// Add mass
 	btVector3 inertia;
@@ -64,7 +64,7 @@ btRigidBody *Multirotor::createFrameRigidBody(){
 	btRigidBody *frame = new btRigidBody(info);
 
 	// linear + angular damping
-	frame->setDamping(0.05, 0.1); 
+	frame->setDamping(0.05, 0.3); 
 	frame->setActivationState(DISABLE_DEACTIVATION); 
 	//frame->setActivationState(DISABLE_SIMULATION);
 
