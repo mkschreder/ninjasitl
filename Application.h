@@ -121,7 +121,7 @@ private:
 	void renderRange(void); 
 
 	glm::vec3 get_player_start(IQ3LevelMesh *level); 
-	void add_triangle_mesh(IMesh *mesh, float scale); 
+	void add_triangle_mesh(IMesh *mesh, const glm::vec3 &scale); 
 
 	void loadMediaArchives(); 
 private:

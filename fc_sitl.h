@@ -1,8 +1,9 @@
 #pragma once
 
 #include <stdint.h>
+#include <stdbool.h>
 
-#define FC_SITL_PWM_CHANNELS 8
+#define FC_SITL_PWM_CHANNELS 16
 
 // this is data sent to us by a sitl that supports server mode simulation (if
 // mode is set to SERVER in data frames received from sitl)
@@ -57,7 +58,10 @@ struct fc_sitl_client_interface {
 	void (*read_gyro)(struct fc_sitl_client_interface *self, float gyro[3]);
 	void (*read_accel)(struct fc_sitl_client_interface *self, float accel[3]);
 	void (*read_mag)(struct fc_sitl_client_interface *self, float mag[3]);
+	void (*led_on)(struct fc_sitl_client_interface *self, uint8_t id, bool value);
+	void (*led_toggle)(struct fc_sitl_client_interface *self, uint8_t id);
 	void (*write_pwm)(struct fc_sitl_client_interface *self, int8_t chan, uint16_t value);
+	void (*update_euler_angles)(struct fc_sitl_client_interface *self, int16_t roll, int16_t pitch, int16_t yaw);
 	void *data;
 };
 

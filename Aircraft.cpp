@@ -15,7 +15,7 @@
 	along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
-
+#include "Application.h"
 #include "Aircraft.h"
 #include "MagneticField.h"
 
@@ -64,7 +64,8 @@ void Aircraft::updateLocation(){
 }
 
 glm::vec3 Aircraft::calcAcceleration(){
-	return glm::inverse(getRotation()) * (_linear_acceleration + glm::vec3(0, 9.82, 0)); 
+	//return glm::inverse(getRotation()) * (_linear_acceleration + glm::vec3(0, 9.82, 0)); 
+	return glm::inverse(getRotation()) * (glm::vec3(0, 9.82, 0)); 
 }
 
 glm::vec3 Aircraft::calcMagFieldIntensity(){
@@ -124,10 +125,16 @@ glm::quat Aircraft::getRotation(){
 }
 
 void Aircraft::setPosition(const glm::vec3 &pos){
-	btTransform t = _frame_body->getCenterOfMassTransform();
-	t.setOrigin(btVector3(pos.x, pos.y, pos.z)); 
-	_frame_body->setCenterOfMassTransform(t); 
-	_frame_node->setPosition(vector3df(pos.x, pos.y, pos.z)); 
+	btTransform t;
+
+	_frame_body->getMotionState()->getWorldTransform(t);
+	t.setOrigin(btVector3(pos.x, pos.y, pos.z));
+	_frame_body->setWorldTransform(t);
+	_frame_body->getMotionState()->setWorldTransform(t);
+
+	_frame_body->clearForces();
+	_frame_body->setLinearVelocity(btVector3(0.0f,0.0f,0.0f));
+	_frame_body->setAngularVelocity(btVector3(0.0f,0.0f,0.0f));
 }
 
 void Aircraft::setHomeLocation(const glm::vec3 &loc){
@@ -135,10 +142,10 @@ void Aircraft::setHomeLocation(const glm::vec3 &loc){
 }
  
 void Aircraft::setRotation(const glm::quat &rot){
-	btTransform t = _frame_body->getCenterOfMassTransform();
+	btTransform t = _frame_body->getWorldTransform();
 	btQuaternion q(rot.x, rot.y, rot.z, rot.w); 
 	t.setRotation(q); 
-	_frame_body->setCenterOfMassTransform(t); 
+	_frame_body->setWorldTransform(t); 
 }
 
 void Aircraft::setAngularVelocity(const glm::vec3 &v){

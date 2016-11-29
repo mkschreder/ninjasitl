@@ -19,6 +19,7 @@
 #include "Application.h"
 #include "time.h"
 #include <unistd.h>
+#include <signal.h>
 
 static Application *_app;
 
@@ -32,10 +33,16 @@ public:
 	}
 };
 
+sig_atomic_t shutdown = false;
+void sigint(int arg){
+	shutdown = true;
+}
 int main(int argc, char **argv) {
 	int c; 
 	const char *map = "q3dmp23.bsp"; 
 	const char *replay_file = NULL; 
+
+	signal(SIGINT, sigint);
 
 	while((c = getopt(argc, argv, "m:r:")) != -1){
 		switch(c){
@@ -57,9 +64,10 @@ int main(int argc, char **argv) {
 	}
 
 	// arm 
-	while(1) {
+	while(!shutdown) {
 		_app->run(); 
 	}
+	printf("shutting down!\n");
 
 	return 0; 
 }

@@ -33,7 +33,7 @@
 #define MODE_CLIENT_SIM 0
 #define MODE_SERVER_SIM 1
 
-#define Q3_WORLD_SCALE 0.015f
+#define Q3_WORLD_SCALE glm::vec3(0.015f, 0.015f, 0.015f)
 
 struct server_packet {
 	unsigned long long time; 
@@ -97,36 +97,46 @@ glm::vec3 Application::get_player_start(IQ3LevelMesh *level){
 	return glm::vec3(0, 0, 0); 
 }
 
-void Application::add_triangle_mesh(IMesh *mesh, float scale){
-	btTriangleMesh *trimesh = new btTriangleMesh();
-
-	for (unsigned int i = 0; i < mesh->getMeshBufferCount(); i++){
-		irr::scene::IMeshBuffer* mb = mesh->getMeshBuffer(i);
-	   
-		if (mb->getVertexType()==irr::video::EVT_STANDARD){
-			::printf("Standard vertex\n"); 
+static void _add_meshbuffer_to_trimesh(btTriangleMesh *trimesh, irr::video::S3DVertex2TCoords *mb_vertices, u32 vertex_count, u16 *mb_indices, u32 index_count, const glm::vec3 &scale){
+	int triCount = 0;
+	if(!mb_vertices) return;
+	if(mb_indices && index_count > 0){
+		for (unsigned int j=0; j < index_count; j += 3){
+			video::S3DVertex2TCoords *v0 = &mb_vertices[mb_indices[j]]; 
+			video::S3DVertex2TCoords *v1 = &mb_vertices[mb_indices[j+1]]; 
+			video::S3DVertex2TCoords *v2 = &mb_vertices[mb_indices[j+2]]; 
+			//::printf("tri: %f %f %f, %f %f %f, %f %f %f\n", v0->Pos.X, v0->Pos.Y, v0->Pos.Z, v1->Pos.X, v1->Pos.Y, v1->Pos.Z, v2->Pos.X, v2->Pos.Y, v2->Pos.Z); 
+			trimesh->addTriangle(
+				btVector3(v0->Pos.X * scale.x, v0->Pos.Y * scale.y, v0->Pos.Z * scale.z), 
+				btVector3(v1->Pos.X * scale.x, v1->Pos.Y * scale.y, v1->Pos.Z * scale.z), 
+				btVector3(v2->Pos.X * scale.x, v2->Pos.Y * scale.y, v2->Pos.Z * scale.z)
+			); 
+			triCount++;
 		}
-		if (mb->getVertexType()==irr::video::EVT_2TCOORDS){
-			irr::video::S3DVertex2TCoords* mb_vertices=(irr::video::S3DVertex2TCoords*)mb->getVertices();
-			u16* mb_indices = mb->getIndices();
-			for (unsigned int j=0; j < mb->getIndexCount(); j += 3){
-				video::S3DVertex2TCoords *v0 = &mb_vertices[mb_indices[j]]; 
-				video::S3DVertex2TCoords *v1 = &mb_vertices[mb_indices[j+1]]; 
-				video::S3DVertex2TCoords *v2 = &mb_vertices[mb_indices[j+2]]; 
-				trimesh->addTriangle(
-					btVector3(v0->Pos.X, v0->Pos.Y, v0->Pos.Z) * scale, 
-					btVector3(v1->Pos.X, v1->Pos.Y, v1->Pos.Z) * scale, 
-					btVector3(v2->Pos.X, v2->Pos.Y, v2->Pos.Z) * scale
-				); 
-			}
+	} else {
+		// nonindexed buffer
+		for (unsigned int j=0; j < vertex_count; j += 3){
+			video::S3DVertex2TCoords *v0 = &mb_vertices[j];
+			video::S3DVertex2TCoords *v1 = &mb_vertices[j+1];
+			video::S3DVertex2TCoords *v2 = &mb_vertices[j+2];
+			trimesh->addTriangle(
+				btVector3(v0->Pos.X * scale.x, v0->Pos.Y * scale.y, v0->Pos.Z * scale.z),
+				btVector3(v1->Pos.X * scale.x, v1->Pos.Y * scale.y, v1->Pos.Z * scale.z),
+				btVector3(v2->Pos.X * scale.x, v2->Pos.Y * scale.y, v2->Pos.Z * scale.z)
+			); 
+			triCount++;
 		}
 	}
+	//printf("processed %d vertices, %d indices\n", vertex_count, index_count);
+}
+
+static void _add_trimesh_to_world(btDynamicsWorld *World, btTriangleMesh *trimesh, btVector3 pos = btVector3(0, 0, 0)){
 	btCollisionShape *shape = new btBvhTriangleMeshShape(trimesh, false);
 	
 	float mass = 0.0f; 
 	btTransform Transform; 
 	Transform.setIdentity(); 
-	Transform.setOrigin(btVector3(0, 0, 0)); 
+	Transform.setOrigin(pos); 
 
 	btDefaultMotionState *mstate = new btDefaultMotionState(Transform);
 
@@ -139,6 +149,28 @@ void Application::add_triangle_mesh(IMesh *mesh, float scale){
 
 	// Add it to the world
 	World->addRigidBody(body, COLLIDE_WORLD, COLLIDE_FRAME | COLLIDE_PROP);
+}
+
+void Application::add_triangle_mesh(IMesh *mesh, const glm::vec3 &scale){
+	if(!mesh) return;
+
+	btTriangleMesh *trimesh = new btTriangleMesh();
+
+	int triCount = 0;
+	for (unsigned int i = 0; i < mesh->getMeshBufferCount(); i++){
+		irr::scene::IMeshBuffer* mb = mesh->getMeshBuffer(i);
+		printf("adding triangle mesh: %d vertices, %d indices\n", mb->getVertexCount(), mb->getIndexCount());
+	  	if(!mb) continue;
+
+		if (mb->getVertexType()==irr::video::EVT_STANDARD){
+			::printf("Standard vertex\n"); 
+		}
+		if (mb->getVertexType()==irr::video::EVT_2TCOORDS){
+			irr::video::S3DVertex2TCoords* mb_vertices=(irr::video::S3DVertex2TCoords*)mb->getVertices();
+			_add_meshbuffer_to_trimesh(trimesh, mb_vertices, mb->getVertexCount(), mb->getIndices(), mb->getIndexCount(), scale);
+		}
+	}
+	_add_trimesh_to_world(World, trimesh);
 }
 
 void Application::_dynamicsTickCallback(btDynamicsWorld *world, btScalar timeStep) {
@@ -157,10 +189,11 @@ void Application::_dynamicsTickCallback(btDynamicsWorld *world, btScalar timeSte
             btManifoldPoint& pt = contactManifold->getContactPoint(j);
             if (pt.getDistance()<0.f)
             {
+				/*
                 const btVector3& ptA = pt.getPositionWorldOnA();
                 const btVector3& ptB = pt.getPositionWorldOnB();
                 const btVector3& normalOnB = pt.m_normalWorldOnB;
-				
+				*/
 				self->onCollision(obA, obB); 	
             }
         }
@@ -175,8 +208,8 @@ Application::Application()
 	mRCPitch = 0.5; 
 	mRCYaw = 0.5; 
 	mRCRoll = 0.5; 
-	mRCAux1 = 0.2; 
-	mRCAux2 = 0.2; 
+	mRCAux1 = 0.5; 
+	mRCAux2 = 0.5; 
 
 	memset(_key_down, 0, sizeof(_key_down)); 
 
@@ -197,6 +230,10 @@ Application::Application()
 	_drv = _dev->getVideoDriver();
 	_scene->setAmbientLight(video::SColorf(1.0f, 1.0f, 1.0f, 1.0f)); 
 	_dev->getCursorControl()->setVisible(0);
+
+	IGUIEnvironment *_env = _dev->getGUIEnvironment();
+	_env->addImage(_drv->getTexture("base/logo.png"),
+            position2d<int>(10,10));
 
 	initJoystick(); 
 
@@ -237,14 +274,19 @@ Application::Application()
 	_aircraft = new TiltXRotor(this);
 	_aircraft->init(); 
 	
-	_aircraft->setPosition(_player_start + glm::vec3(0, 4, 0)); 
+	//_aircraft->setPosition(_player_start + glm::vec3(0, 4, 0)); 
 	_aircraft->setHomeLocation(glm::vec3(149.165230, 584, -35.363261)); 
 
 	// platform
 	//CreateBox(btVector3(_player_start.x, _player_start.y-3, _player_start.z), vector3df(5.0f, 1.5f, 5.0f), 0.0f, "ice0.jpg");
-	CreateBox(btVector3(_player_start.x, _player_start.y-3, _player_start.z), vector3df(500.0f, 1.5f, 500.0f), 0.0f, "ice0.jpg");
+	//CreateBox(btVector3(_player_start.x, _player_start.y-3, _player_start.z), vector3df(500.0f, 1.5f, 500.0f), 0.0f, "ice0.jpg");
+	//CreateBox(btVector3(0, 1, 0), vector3df(500.0f, 1.5f, 500.0f), 0.0f, "ice0.jpg");
 	//sock.bind("127.0.0.1", 9002); 
 	//sock.set_blocking(false); 
+
+	CreateBox(btVector3(0.0f, 2.0f, 4.0f), vector3df(0.5f, 2.0f, 0.5f), 5.0f, "sand.jpg");
+	CreateBox(btVector3(2.0f, 2.0f, 4.0f), vector3df(0.5f, 2.0f, 0.5f), 5.0f, "sand.jpg");
+	CreateBox(btVector3(1.0f, 3.0f, 4.0f), vector3df(3.0f, 1.0f, 1.0f), 5.0f, "sand.jpg");
 
 	::fprintf(stdout, "QuadSim started!\n"); 
 }
@@ -265,7 +307,7 @@ int Application::loadMap(const char *filename){
 	scene::IMesh * const geom = mesh->getMesh(quake3::E_Q3_MESH_GEOMETRY); 
 	scene::ISceneNode *node = _scene->addOctreeSceneNode(geom, 0, -1, 4096);
 	
-	node->setScale(core::vector3df(Q3_WORLD_SCALE, Q3_WORLD_SCALE, Q3_WORLD_SCALE)); 
+	node->setScale(core::vector3df(Q3_WORLD_SCALE.x, Q3_WORLD_SCALE.y, Q3_WORLD_SCALE.z)); 
 	//node->setPosition(core::vector3df(-130,-14.4,-124.9));
 
 	for ( u32 i = 0; i!= additional_mesh->getMeshBufferCount(); ++i ){
@@ -296,9 +338,9 @@ int Application::loadMap(const char *filename){
         "base/terrain-heightmap.bmp",
         0,                  // parent node
         -1,                 // node id
-        core::vector3df(0.f, 0.f, 0.f),     // position
+        core::vector3df(-1000.f, -200.f, -1000.f),     // position
         core::vector3df(0.f, 0.f, 0.f),     // rotation
-        core::vector3df(40.f, 4.4f, 40.f),  // scale
+        core::vector3df(10.0f, 5.0f, 10.0f),  // scale
         video::SColor ( 255, 255, 255, 255 ),   // vertexColor
         5,                  // maxLOD
         scene::ETPS_17,             // patchSize
@@ -314,16 +356,31 @@ int Application::loadMap(const char *filename){
     terrain->setTriangleSelector(sel);  
     terrain->setMaterialType(video::EMT_DETAIL_MAP);
 
-    terrain->scaleTexture(1.0f, 20.0f);
+    terrain->scaleTexture(20.0f, 20.0f);
+
+	printf("adding terrain to collision world..\n");
+	scene::CDynamicMeshBuffer* buffer = new scene::CDynamicMeshBuffer(video::EVT_2TCOORDS, video::EIT_16BIT);
+    terrain->getMeshBufferForLOD(*buffer, 0);
+	btTriangleMesh *trimesh = new btTriangleMesh();
+	printf("terrain has %d vertices and %d indices\n", buffer->getVertexCount(), buffer->getIndexCount());
+	_add_meshbuffer_to_trimesh(trimesh, (video::S3DVertex2TCoords*)buffer->getVertices(), buffer->getVertexCount(), buffer->getIndices(), buffer->getIndexCount(), glm::vec3(10.0f, 5.0f, 10.0f));
+	_add_trimesh_to_world(World, trimesh, btVector3(-1000.f, -200.f, -1000.f));
 
 	sel->drop();
 
-	_player_start = get_player_start(mesh);// * Q3_WORLD_SCALE; 
+	// create sky
+	_drv->setTextureCreationFlag(video::ETCF_CREATE_MIP_MAPS, false);
+	scene::ISceneNode *sky = _scene->addSkyDomeSceneNode(_drv->getTexture("base/skydome_2k.jpg"), 16, 8, 0.95f, 2.0f);
+	_drv->setTextureCreationFlag(video::ETCF_CREATE_MIP_MAPS, true);
 
-	//_aircraft->setPosition(_player_start + glm::vec3(0, 4, 0)); 
+	//_drv->setFog(video::SColor(0,138,125,81), video::EFT_FOG_LINEAR, 250, 1000, .003f, true, false);
 
+	_player_start = get_player_start(mesh) * Q3_WORLD_SCALE; 
+
+	//_aircraft->setPosition(glm::vec3(10, 10, 10));
 	printf("Player start found at: %f %f %f\n", _player_start.x, _player_start.y, _player_start.z);
 
+	_aircraft->setPosition(_player_start + glm::vec3(0, 1, 0));
 	mCamera->setPosition(vector3df(_player_start.x, _player_start.y, _player_start.z));
 
 	return 0; 
@@ -344,7 +401,7 @@ void Application::loadMediaArchives(){
 	glob("base/map*.pk3", GLOB_APPEND, 0, &results); 
 	glob("base/[!p][!a][!k]*.pk3", GLOB_APPEND, 0, &results); 
 
-	for(int c = 0; c < results.gl_pathc; c++){
+	for(size_t c = 0; c < results.gl_pathc; c++){
 		printf("Loading archive %s\n", results.gl_pathv[c]); 
 		_dev->getFileSystem()->addFileArchive(results.gl_pathv[c]);
 	}
@@ -471,8 +528,8 @@ void Application::handleInputJoystick(double dt){
 	float yaw = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_X] / 32767.0f; 
 	float pit = -_joystickState.Axis[SEvent::SJoystickEvent::AXIS_R] / 32767.0f; 
 	float rll = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_Z] / 32767.0f; 
-	float u = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_U] / 32767.0f; 
-	float v = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_V] / 32767.0f; 
+	//float u = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_U] / 32767.0f; 
+	//float v = _joystickState.Axis[SEvent::SJoystickEvent::AXIS_V] / 32767.0f; 
 	
 	//printf("JOYSTICK: %f %f %f %f %f %f\n", thr, yaw, pit, rll, u, v); 
 
@@ -519,10 +576,10 @@ void Application::handleInputKeyboard(double dt){
 	// Yaw
 	if(_key_down[KEY_KEY_D]){
 		if(mRCYaw < 0.5) mRCYaw = 0.5; 
-		mRCYaw += dt * 0.2; 	
+		mRCYaw += dt * 0.8; 	
 	} else if(_key_down[KEY_KEY_A]){
 		if(mRCYaw > 0.5) mRCYaw = 0.5; 
-		mRCYaw -= dt * 0.2; 
+		mRCYaw -= dt * 0.8; 
 	} else {
 		mRCYaw = 0.5; 
 	}	
@@ -623,6 +680,8 @@ static const glm::vec3 _dir[6] = {
 static glm::vec3 dir[6]; 	
 
 void Application::renderRange(){
+	return;
+	/*
 	glm::vec3 pos = _aircraft->getPosition(); 
 	glm::quat rot = _aircraft->getRotation(); 
 	
@@ -640,6 +699,7 @@ void Application::renderRange(){
 			vector3df(hit.x, hit.y, hit.z), 
 			color);
 	}
+	*/
 }
 
 #define is_zero(X) (fabsf(X) < FLT_EPSILON)
@@ -711,12 +771,12 @@ void Application::updateCamera(){
 void Application::updateReplay(float dt){
 	if(!_replay_mode) return; 
 	if(_replay.step(dt)){
-		glm::vec3 pos = _replay.getPosition(); 
-		glm::quat rot = _replay.getRotation(); 
+		//glm::vec3 pos = _replay.getPosition(); 
+		//glm::quat rot = _replay.getRotation(); 
 
-		printf("keyframe: pos(%f %f %f)\n", pos.x, pos.y, pos.z); 
+		//printf("keyframe: pos(%f %f %f)\n", pos.x, pos.y, pos.z); 
 
-		_aircraft->setPosition(pos); 
+		//_aircraft->setPosition(pos); 
 		//_aircraft->setRotation(rot); 
 	}
 }
@@ -752,6 +812,35 @@ void Application::run(){
 	// debug
 	_aircraft->render(); 
 	renderRange(); 
+	// render euler angles
+	glm::quat q = sitl->get_rotation();
+	glm::vec3 pos = _aircraft->getPosition();
+	glm::vec3 up = q * glm::vec3(0, 10, 0);
+	_drv->draw3DLine(vector3df(pos.x, pos.y, pos.z),
+		vector3df(pos.x + up.x, pos.y + up.y, pos.z + up.z), 
+		SColor( 255, 100, 255, 100 ));
+
+	// draw sticks
+	const core::dimension2du &screen = _drv->getScreenSize();
+	_drv->draw2DRectangle(SColor(100, 100, 100, 100), core::rect<s32>(10, screen.Height - 50, 50, screen.Height - 10));
+	_drv->draw2DRectangle(SColor(100, 100, 100, 100), core::rect<s32>(60, screen.Height - 50, 100, screen.Height - 10));
+	_drv->draw2DLine(core::position2d<s32>(10, screen.Height - 30), core::position2d<s32>(50, screen.Height - 30), SColor(100, 255,255,255));
+	_drv->draw2DLine(core::position2d<s32>(30, screen.Height - 50), core::position2d<s32>(30, screen.Height - 10), SColor(100, 255,255,255));
+	_drv->draw2DLine(core::position2d<s32>(60, screen.Height - 30), core::position2d<s32>(100, screen.Height - 30), SColor(100, 255,255,255));
+	_drv->draw2DLine(core::position2d<s32>(80, screen.Height - 50), core::position2d<s32>(80, screen.Height - 10), SColor(100, 255,255,255));
+
+	_drv->draw2DPolygon(core::position2d<s32>(10 + 40 * mRCYaw, screen.Height - 10 - 40 * mRCThrottle), 5, SColor(100, 100, 0, 0), 20);
+	_drv->draw2DPolygon(core::position2d<s32>(60 + 40 * mRCRoll, screen.Height - 10 - 40 * mRCPitch), 5, SColor(100, 100, 0, 0), 20);
+
+	// draw leds
+
+	ITexture *led_on = _drv->getTexture("led_red_on.png");
+	ITexture *led_off = _drv->getTexture("led_red_off.png");
+	if(sitl->get_led(0))
+		_drv->draw2DImage(led_on, position2di(10, screen.Height - 100), rect<s32>(0, 0, 32, 32), 0, SColor(0, 255, 255, 255), true);
+	else
+		_drv->draw2DImage(led_off, position2di(10, screen.Height - 100), rect<s32>(0, 0, 32, 32), 0, SColor(0, 255, 255, 255), true);
+
 	gui::IGUIFont* font = _dev->getGUIEnvironment()->getBuiltInFont();
 
 	if(_key_down[KEY_KEY_W])
@@ -848,9 +937,9 @@ bool Application::OnEvent(const SEvent &ev) {
 					glm::quat(cos(glm::radians(-45.0) / 2), sin(glm::radians(-45.0) / 2), 0, 0), // front
 					glm::quat(cos(glm::radians(45.0) / 2), sin(glm::radians(45.0) / 2), 0, 0) // back
 				}; 
-				_aircraft->setPosition(glm::vec3(0, 10, 0)); 
-				_aircraft->setRotation(rots[id++] * y); 
-				_aircraft->setAngularVelocity(glm::vec3(0, 0, 0)); 
+				_aircraft->setPosition(glm::vec3(0, 30, 0)); 
+				//_aircraft->setRotation(rots[id++] * y); 
+				//_aircraft->setAngularVelocity(glm::vec3(0, 0, 0)); 
 				id = id % (sizeof(rots) / sizeof(rots[0])); 
 				break; 
 			}
@@ -883,7 +972,7 @@ bool Application::OnEvent(const SEvent &ev) {
 					glm::quat(cos(glm::radians(180.0) / 2), 0, 0, sin(glm::radians(180.0) / 2)) // upsidedown
 				}; 
 				_aircraft->setPosition(glm::vec3(0, 10, 0)); 
-				_aircraft->setAngularVelocity(glm::vec3(0, -1, 0)); 
+				_aircraft->setAngularVelocity(glm::vec3(0, 0, 0)); 
 				_aircraft->setRotation(rots[id++]); 
 				id = id % 7; 
 				break; 
@@ -926,7 +1015,13 @@ btRigidBody *Application::CreateBox(const btVector3 &TPosition, const vector3df 
 	Node->setMaterialFlag(EMF_LIGHTING, 1);
 	Node->setMaterialFlag(EMF_NORMALIZE_NORMALS, true);
 	Node->setMaterialTexture(0, _drv->getTexture(texture));
-
+/*
+	Node->setMaterialFlag(video::EMF_LIGHTING, true);
+	Node->setMaterialFlag(video::EMF_FOG_ENABLE, true);
+	int matCount = Node->getMaterialCount();
+	for(int i=0; i < matCount; i++)
+		Node->getMaterial(i).AmbientColor.set(255,255,0,0);
+*/
 	// Set the initial position of the object
 	btTransform Transform; 
 	Transform.setIdentity(); 
@@ -978,21 +1073,22 @@ void Application::updateNetwork(double dt){
 	static glm::vec3 angles(0, 0, 0); 
 
 	//printf("servo(%d %d %d %d) rpy(%f %f %f)\n", pkt.servo[0], pkt.servo[1], pkt.servo[2], pkt.servo[3], roll, pitch, yaw); 
-	for(unsigned c = 0; c < 8; c++){
+	for(unsigned c = 0; c < FC_SITL_PWM_CHANNELS; c++){
 		_aircraft->setOutput(c, (sitl->read_pwm(c) - 1000) / 1000.0f); 
 	}
 
-	glm::vec3 pos = _aircraft->getPosition(); 
-	glm::quat rot = _aircraft->getRotation(); 
+	//glm::vec3 pos = _aircraft->getPosition(); 
+	//glm::quat rot = _aircraft->getRotation(); 
 	glm::vec3 accel = _aircraft->getAccel(); 
-	glm::ivec3 loc = _aircraft->getLocation(); 
-	glm::vec3 mag = _aircraft->getMagneticField();
-	glm::vec3 vel = _aircraft->getVelocity(); 
+	//glm::ivec3 loc = _aircraft->getLocation(); 
+	//glm::vec3 mag = _aircraft->getMagneticField();
+	//glm::vec3 vel = _aircraft->getVelocity(); 
 	glm::vec3 gyro = _aircraft->getGyro(); 
-	glm::vec3 euler = glm::eulerAngles(rot); 
+	//glm::vec3 euler = glm::eulerAngles(rot); 
 
-	sitl->write_gyro(-gyro.z, -gyro.x, gyro.y);
-	sitl->write_accel(accel.z, accel.x, -accel.y);
+	sitl->write_gyro(-gyro.z, gyro.x, -gyro.y);
+	//sitl->write_accel(accel.z, accel.x, -accel.y);
+	sitl->write_accel(accel.z, -accel.x, accel.y);
 
 	//state.pos[0] = pos.z; state.pos[1] = pos.x; state.pos[2] = -pos.y; 
 	//state.loc[0] = loc.z; state.loc[1] = loc.x; state.loc[2] = loc.y; 
@@ -1001,15 +1097,11 @@ void Application::updateNetwork(double dt){
 
 	sitl->write_rc(0, 1000 + mRCRoll * 1000);
 	sitl->write_rc(1, 1000 + mRCPitch * 1000);
-	sitl->write_rc(2, 1000 + mRCThrottle * 1000);
-	sitl->write_rc(3, 1000 + mRCYaw * 1000);
+	sitl->write_rc(2, 1000 + mRCYaw * 1000);
+	sitl->write_rc(3, 1000 + mRCThrottle * 1000);
 	sitl->write_rc(4, 1000 + mRCAux1 * 1000);
 	sitl->write_rc(5, 1000 + mRCAux2 * 1000);
 
-	//if(sock.recv(&pkt, sizeof(pkt), 1) == sizeof(pkt)){
-	//memcpy(&pkt, _shmin, sizeof(server_packet)); 
-
-	// check if we have a valid and up to date packet
 	#if 0
 	if(pkt.time == 0 || (time(NULL) - pkt.time) > 1) {
 		printf("Invalid packet timestamp!"); 

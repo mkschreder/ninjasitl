@@ -46,7 +46,6 @@ btRigidBody *Multirotor::createFrameRigidBody(){
 
 	btTransform tr;
 	tr.setIdentity();
-	tr.setOrigin(btVector3(0, 0.5, 0));
 
 	btDefaultMotionState *ms = new btDefaultMotionState(tr);
 
@@ -102,7 +101,7 @@ void Multirotor::render(){
 	glm::quat rot = getRotation();
 	glm::vec3 gyr = getGyro();
 	glm::vec3 pos = getPosition(); // + rot * glm::vec3(0, 0.2, 0);
-	glm::vec3 acc = rot * getAccel();  
+	glm::vec3 acc = getAccel();
 	glm::vec3 mag = (rot * getMagneticField()) * 0.001f;  
 	glm::vec3 vel = getVelocity(); 
 	glm::vec3 ax = rot * glm::vec3(0.1, 0.0, 0.0); 
@@ -150,11 +149,11 @@ void Multirotor::render(){
 		vector3df(pos.x + _linear_acceleration.x, pos.y + _linear_acceleration.y, pos.z + _linear_acceleration.z), 
 		SColor( 255, 255, 0, 255 ));
 	*/
-
+/*
 	drv->draw3DLine(vector3df(pos.x, pos.y, pos.z),
 		vector3df(pos.x + vel.x, pos.y + vel.y, pos.z + vel.z), 
 		SColor( 255, 255, 0, 255 ));
-
+*/
 	
 	for(std::vector<Motor*>::iterator i = _motors.begin();
 		i != _motors.end(); 

@@ -68,13 +68,14 @@ btRigidBody *TiltXRotor::createFrameRigidBody(){
 		// Create the rigid body object
 		btRigidBody::btRigidBodyConstructionInfo info(mass, ms, shape, inertia); //motion state would actually be non-null in most real usages
 		btRigidBody *prop = new btRigidBody(info);
-	
+/*	
 		btFixedConstraint *cons = new btFixedConstraint(*frame, *prop, btTransform::getIdentity(), tr); 
 
 		_application->getDynamicsWorld()->addConstraint(cons); 
 		_application->getDynamicsWorld()->addRigidBody(prop, COLLIDE_PROP, COLLIDE_WORLD); 
 
 		_props.push_back(prop); 
+*/
 	}
 	return frame; 
 }
@@ -99,7 +100,7 @@ void TiltXRotor::onCollision(const btCollisionObject *a, const btCollisionObject
 }
 
 void TiltXRotor::setOutput(unsigned int id, float value){
-	if(id == 7){
+	if(id == 8){
 		float pitch = (value - 0.5f) * 90.0f; 
 		// tilt all rotors forward or backwards depending on supplied pitch
 		for(std::vector<Motor*>::iterator i = _motors.begin(); 

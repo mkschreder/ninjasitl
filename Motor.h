@@ -27,7 +27,7 @@ public:
 		MOTOR_CCW = 1
 	} motor_dir_t; 
 
-	Motor(const glm::vec3 &pos, Motor::motor_dir_t dir, float power = 10.0f); 
+	Motor(const glm::vec3 &pos, Motor::motor_dir_t dir, float power = 20.0f); 
 
 	const glm::vec3 &getPosition(); 
 	const glm::vec3 &getThrustVector(); 

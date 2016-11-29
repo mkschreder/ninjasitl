@@ -32,9 +32,9 @@ irr::scene::ISceneNode *GenericXRotor::createFrameSceneNode(){
 }
 
 void GenericXRotor::setupMotors(){
-	_motors.push_back(new Motor(glm::vec3( 0.15, 0.0, 0.1), Motor::MOTOR_CCW));
-	_motors.push_back(new Motor(glm::vec3(-0.15, 0.0,-0.1), Motor::MOTOR_CCW));
-	_motors.push_back(new Motor(glm::vec3(-0.15, 0.0, 0.1), Motor::MOTOR_CW));
-	_motors.push_back(new Motor(glm::vec3( 0.15, 0.0,-0.1), Motor::MOTOR_CW));
+	_motors.push_back(new Motor(glm::vec3( 0.15, 0.0,-0.1), Motor::MOTOR_CW)); // BACK RIGHT
+	_motors.push_back(new Motor(glm::vec3( 0.15, 0.0, 0.1), Motor::MOTOR_CCW)); // FRONT RIGHT
+	_motors.push_back(new Motor(glm::vec3(-0.15, 0.0,-0.1), Motor::MOTOR_CCW)); // BACK LEFT
+	_motors.push_back(new Motor(glm::vec3(-0.15, 0.0, 0.1), Motor::MOTOR_CW)); // FRONT LEFT
 }
 
