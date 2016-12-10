@@ -10,4 +10,4 @@ cd build
 cmake ..
 cd ..
 
-make -C build -j8 && ./build/quadcopter -m Q3AnthraxDM1.bsp
+make -C build -j8 && ./build/quadcopter #-m Q3AnthraxDM1.bsp

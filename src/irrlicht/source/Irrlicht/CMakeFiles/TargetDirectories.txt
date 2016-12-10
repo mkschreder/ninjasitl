@@ -1,0 +1,1 @@
+/data/software/ninjaflight/ninjasitl/irrlicht/source/Irrlicht/CMakeFiles/irrlicht.dir
