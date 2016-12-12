@@ -6,6 +6,8 @@ controllers (currently predominantly aimed at testing ninjaflight:
 https://github.com/mkschreder/ninjaflight, although it was first developed for
 ardupilot).
 
+[![IMAGE ALT](https://img.youtube.com/vi/rGc4XmpufJ4/0.jpg)](https://www.youtube.com/watch?v=rGc4XmpufJ4)
+
 The simulator provides realistic sensor inputs to the flight controller and
 expects to be given outputs in the form of pwm signal. Other things such as
 telemetry and osd support are on the plan list and they will be using already
@@ -17,7 +19,10 @@ from it because it is not it's primary purpose.
 
 For rendering this project uses the good old irrlicht engine which is also
 included in the source code. It is not the most modern choice but it is very
-easy to work with and does the job for this simulator.
+easy to work with and does the job for this simulator. 
+
+For sound the sitl uses openal. You can install openal using "apt-get install
+libopenal-dev".
 
 NinjaSITL uses physics simulation implemented through the use of Bullet Physics
 engine.
@@ -37,10 +42,11 @@ the same time. To satisfy this requirement, the flight controller software
 needs to use good object oriented practices with instantiated data and not use
 any global state at all (otherwise things will just blow up in a multithreaded
 application). Constraints like this are generally good for pushing flight
-controller development in a more sane direction. If you feel that interfacing
-with the flight controller over shared memory or a socket is a better fit for
-you then go back in the commit tree and ressurect one of these approaches for
-yourself. They have been used before. 
+controller development in a more sane direction. 
+
+If you feel that interfacing with the flight controller over shared memory or a
+socket is a better fit for you then go back in the commit tree and ressurect
+one of these approaches for yourself. They have been used before. 
 
 Compiling
 ---------
