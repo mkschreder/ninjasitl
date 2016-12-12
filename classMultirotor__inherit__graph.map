@@ -1,0 +1,6 @@
+<map id="Multirotor" name="Multirotor">
+<area shape="rect" id="node3" href="$classGenericPlusRotor.html" title="GenericPlusRotor" alt="" coords="5,155,131,181"/>
+<area shape="rect" id="node4" href="$classGenericXRotor.html" title="GenericXRotor" alt="" coords="155,155,263,181"/>
+<area shape="rect" id="node2" href="$classAircraft.html" title="Aircraft" alt="" coords="107,5,171,32"/>
+<area shape="rect" id="node5" href="$classTiltXRotor.html" title="TiltXRotor" alt="" coords="169,229,249,256"/>
+</map>

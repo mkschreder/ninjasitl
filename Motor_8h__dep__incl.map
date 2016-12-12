@@ -1,0 +1,12 @@
+<map id="src/Motor.h" name="src/Motor.h">
+<area shape="rect" id="node2" href="$Multirotor_8h.html" title="src/Multirotor.h" alt="" coords="415,80,524,107"/>
+<area shape="rect" id="node11" href="$Motor_8cpp.html" title="src/Motor.cpp" alt="" coords="549,80,651,107"/>
+<area shape="rect" id="node3" href="$GenericXRotor_8h.html" title="src/GenericXRotor.h" alt="" coords="139,155,279,181"/>
+<area shape="rect" id="node8" href="$GenericPlusRotor_8h.html" title="src/GenericPlusRotor.h" alt="" coords="390,155,548,181"/>
+<area shape="rect" id="node10" href="$Multirotor_8cpp.html" title="src/Multirotor.cpp" alt="" coords="573,155,696,181"/>
+<area shape="rect" id="node4" href="$Application_8cpp.html" title="src/Application.cpp" alt="" coords="5,304,139,331"/>
+<area shape="rect" id="node5" href="$TiltXRotor_8h.html" title="src/TiltXRotor.h" alt="" coords="109,229,224,256"/>
+<area shape="rect" id="node7" href="$GenericXRotor_8cpp.html" title="src/GenericXRotor.cpp" alt="" coords="248,229,401,256"/>
+<area shape="rect" id="node6" href="$TiltXRotor_8cpp.html" title="src/TiltXRotor.cpp" alt="" coords="163,304,291,331"/>
+<area shape="rect" id="node9" href="$GenericPlusRotor_8cpp.html" title="src/GenericPlusRotor.cpp" alt="" coords="427,229,599,256"/>
+</map>

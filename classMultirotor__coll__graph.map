@@ -1,0 +1,5 @@
+<map id="Multirotor" name="Multirotor">
+<area shape="rect" id="node2" href="$classAircraft.html" title="Aircraft" alt="" coords="55,5,119,32"/>
+<area shape="rect" id="node3" href="$classApplication.html" title="Application" alt="" coords="173,96,259,123"/>
+<area shape="rect" id="node5" href="$classSoundSystem.html" title="SoundSystem" alt="" coords="343,5,447,32"/>
+</map>
