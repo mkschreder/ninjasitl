@@ -26,6 +26,7 @@
 
 #include "Aircraft.h"
 #include "OdometryReplay.h"
+#include "Sound.h"
 
 using namespace irr;
 using namespace core;
@@ -44,7 +45,7 @@ enum {
 
 class Application : public IEventReceiver{
 public:
-	Application();
+	Application(SoundSystem *snd);
 	~Application();
 	
 	void CreateStartScene();
@@ -93,6 +94,7 @@ public:
 	u32 TimeStamp; 
 	bool _key_down[KEY_KEY_CODES_COUNT]; 
 
+	SoundSystem *_snd;
 private: 
 	void onCollision(const btCollisionObject *a, const btCollisionObject *b); 
 

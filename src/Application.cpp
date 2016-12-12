@@ -156,7 +156,7 @@ void Application::add_triangle_mesh(IMesh *mesh, const glm::vec3 &scale){
 
 	btTriangleMesh *trimesh = new btTriangleMesh();
 
-	int triCount = 0;
+	//int triCount = 0;
 	for (unsigned int i = 0; i < mesh->getMeshBufferCount(); i++){
 		irr::scene::IMeshBuffer* mb = mesh->getMeshBuffer(i);
 		printf("adding triangle mesh: %d vertices, %d indices\n", mb->getVertexCount(), mb->getIndexCount());
@@ -201,9 +201,10 @@ void Application::_dynamicsTickCallback(btDynamicsWorld *world, btScalar timeSte
 }
  
 static int paused = 0; 
-Application::Application()
+Application::Application(SoundSystem *snd)
 //	sock(true){
 {
+	_snd = snd;
 	mRCThrottle = 0; 
 	mRCPitch = 0.5; 
 	mRCYaw = 0.5; 
@@ -904,6 +905,8 @@ void Application::run(){
 	else
 		_drv->draw2DImage(_led_off, position2di(10, screen.Height - 100), rect<s32>(0, 0, 32, 32), 0, SColor(255, 255, 255, 255), true);
 
+	// update beeper
+	_snd->beep(sitl->read_beeper());
 
 	_drv->endScene();
 	_dev->run();

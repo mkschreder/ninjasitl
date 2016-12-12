@@ -38,6 +38,8 @@ void sigint(int arg){
 	shutdown = true;
 }
 int main(int argc, char **argv) {
+	SoundSystem *snd = new SoundSystem();
+
 	int c; 
 	const char *map = "q3dmp23.bsp"; 
 	const char *replay_file = NULL; 
@@ -55,7 +57,7 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	_app = new Application();
+	_app = new Application(snd);
 
 	_app->loadMap(map); 
 

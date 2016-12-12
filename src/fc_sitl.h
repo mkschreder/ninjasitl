@@ -48,11 +48,13 @@ struct fc_sitl_client_interface {
 	void (*led_on)(struct fc_sitl_client_interface *self, uint8_t id, bool value);
 	//! toggle a led
 	void (*led_toggle)(struct fc_sitl_client_interface *self, uint8_t id);
+	//! beeper function
+	void (*beeper)(struct fc_sitl_client_interface *self, uint8_t on);
 	//! write pwm output values
 	void (*write_pwm)(struct fc_sitl_client_interface *self, int8_t chan, uint16_t value);
 	//! write euler angles
 	void (*write_euler_angles)(struct fc_sitl_client_interface *self, int16_t roll, int16_t pitch, int16_t yaw);
-	//! SITL specific data
+	//! SITL specific data. NOTE: keep this last so that you get error for uninitialized pointers above
 	void *data;
 };
 

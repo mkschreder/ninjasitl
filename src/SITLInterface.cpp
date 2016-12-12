@@ -44,15 +44,20 @@
 
 SITLInterface* SITLInterface::_load_sitl(const char *dlname){
 	struct fc_sitl_client_interface *cl = (struct fc_sitl_client_interface*)calloc(1, sizeof(struct fc_sitl_client_interface));
-	cl->read_rc = read_rc;
-	cl->read_gyro = read_gyro;
-	cl->read_accel = read_accel;
-	cl->read_mag = read_mag;
-	cl->read_range = read_range;
-	cl->write_pwm = write_pwm;
-	cl->led_on = led_on;
-	cl->led_toggle = led_toggle;
-	cl->write_euler_angles = write_euler_angles;
+	// NOTE: if you get "nontrivial initializer" error for code below it means that you have added a pointer to the interface that you have not properly initialized.
+	*cl = (struct fc_sitl_client_interface){
+		.read_rc = read_rc,
+		.read_gyro = read_gyro,
+		.read_accel = read_accel,
+		.read_mag = read_mag,
+		.read_range = read_range,
+		.led_on = led_on,
+		.led_toggle = led_toggle,
+		.beeper = beeper,
+		.write_pwm = write_pwm,
+		.write_euler_angles = write_euler_angles,
+		.data = NULL
+	};
 	cl->data = new SITLInterface(cl);
 	struct fc_sitl_server_interface *s = fc_sitl_create_instance(dlname, cl);
 	if(!s) {
@@ -142,6 +147,16 @@ bool SITLInterface::read_led(uint8_t led){
 }
 
 /**
+ * Used by SITL to read beeper state
+ */
+bool SITLInterface::read_beeper(){
+	pthread_mutex_lock(&_lock);
+	bool res = _beep;
+	pthread_mutex_unlock(&_lock);
+	return res;
+}
+
+/**
  * Used by flight controller to read latest pwm values
  */
 uint16_t SITLInterface::read_rc(struct fc_sitl_client_interface *self, uint8_t chan){
@@ -208,6 +223,16 @@ void SITLInterface::led_toggle(struct fc_sitl_client_interface *self, uint8_t le
 	if(led > 3) return;
 	pthread_mutex_lock(&s->_lock);
 	s->_leds[led] = !s->_leds[led];
+	pthread_mutex_unlock(&s->_lock);
+}
+
+/**
+ * Used by flight controller to turn beeper on and off
+ */
+void SITLInterface::beeper(struct fc_sitl_client_interface *self, uint8_t on){
+	SITLInterface *s = (SITLInterface*)self->data;
+	pthread_mutex_lock(&s->_lock);
+	s->_beep = on;
 	pthread_mutex_unlock(&s->_lock);
 }
 

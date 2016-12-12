@@ -31,6 +31,7 @@ public:
 	void write_range(uint16_t deg, uint16_t distance);
 	uint16_t read_pwm(uint8_t chan);
 	bool read_led(uint8_t id);
+	bool read_beeper();
 	glm::quat get_rotation();
 protected:
 	SITLInterface(struct fc_sitl_client_interface *client);
@@ -42,6 +43,7 @@ protected:
 	static int read_range(struct fc_sitl_client_interface *self, uint16_t deg, uint16_t *range);
 	static void led_on(struct fc_sitl_client_interface *self, uint8_t led, bool on);
 	static void led_toggle(struct fc_sitl_client_interface *self, uint8_t led);
+	static void beeper(struct fc_sitl_client_interface *self, uint8_t on);
 	static void write_pwm(struct fc_sitl_client_interface *self, int8_t chan, uint16_t value);
 	static void write_euler_angles(struct fc_sitl_client_interface *self, int16_t roll, int16_t pitch, int16_t yaw);
 private:
@@ -51,6 +53,7 @@ private:
 	uint16_t _range[SITL_RANGE_SENSOR_COUNT];
 	float _euler[3];
 	bool _leds[3];
+	bool _beep;
 	struct fc_sitl_client_interface *client; // reference to client interface that is pointing back to us
 	pthread_mutex_t _lock;
 };

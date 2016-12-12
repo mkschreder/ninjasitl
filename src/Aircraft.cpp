@@ -193,7 +193,7 @@ glm::vec3 Aircraft::getVelocity(){
 }
 
 void Aircraft::applyFrameForce(const glm::vec3 &force, const glm::vec3 &force_pos){
-	glm::vec3 pos = getPosition();
+	//glm::vec3 pos = getPosition();
 	glm::quat rot = getRotation();
 
 	// force is in body frame and position is relative to center of the body

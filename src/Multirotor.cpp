@@ -99,11 +99,11 @@ void Multirotor::render(){
 	irr::video::IVideoDriver *drv = _application->getVideoDriver(); 
 
 	glm::quat rot = getRotation();
-	glm::vec3 gyr = getGyro();
+	//glm::vec3 gyr = getGyro();
 	glm::vec3 pos = getPosition(); // + rot * glm::vec3(0, 0.2, 0);
 	glm::vec3 acc = getAccel();
 	glm::vec3 mag = (rot * getMagneticField()) * 0.001f;  
-	glm::vec3 vel = getVelocity(); 
+	//glm::vec3 vel = getVelocity(); 
 	glm::vec3 ax = rot * glm::vec3(0.1, 0.0, 0.0); 
 	glm::vec3 ay = rot * glm::vec3(0.0, 0.1, 0.0); 
 	glm::vec3 az = rot * glm::vec3(0.0, 0.0, 0.1); 

@@ -20,4 +20,4 @@ set (CMAKE_CXX_FLAGS "-Wall -std=c++11 -pipe -fexceptions -fno-rtti -fstrict-ali
 #add_library(quadcopter ${Project_SOURCES} ${Project_HEADERS})
 add_executable(quadcopter ${Project_SOURCES} ${Project_HEADERS})
 
-target_link_libraries(quadcopter "dl" "irrlicht" "m" "GL" "Xxf86vm" "Xext" "X11" "pthread" "jpeg" "bz2" ${bullet_LIBS})
+target_link_libraries(quadcopter "dl" "irrlicht" "m" "GL" "Xxf86vm" "Xext" "X11" "pthread" "jpeg" "bz2" ${bullet_LIBS} "openal")
