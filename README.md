@@ -1,10 +1,10 @@
 NinjaSITL
 ---------
 
-NinjaSITL aims to be an integrated testing environment for testing flight
-controllers (currently predominantly aimed at testing ninjaflight:
-https://github.com/mkschreder/ninjaflight, although it was first developed for
-ardupilot).
+NinjaSITL is an integrated testing environement for testing ninjaflight flight
+controller (https://github.com/mkschreder/ninjaflight). It was first developed
+for testing ardupilot code indoors (what's better than flying inside quake3
+maps :-)).  
 
 [![IMAGE ALT](https://img.youtube.com/vi/rGc4XmpufJ4/0.jpg)](https://www.youtube.com/watch?v=rGc4XmpufJ4)
 
