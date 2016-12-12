@@ -8,6 +8,34 @@ ardupilot).
 
 [![IMAGE ALT](https://img.youtube.com/vi/rGc4XmpufJ4/0.jpg)](https://www.youtube.com/watch?v=rGc4XmpufJ4)
 
+Building
+--------
+
+You will need a few libraries to build the sitl. Most notably:
+	
+* glm math library
+* openal for sound
+* bullet physics 
+
+You can install these on linux using:
+
+	sudo apt-get install libbullet-dev libopenal-dev libglm-dev
+
+It also requires a flight controller to simulate. Current version only supports
+ninjaflight flight controller. The most straightforward way is therefore to
+build the sitl simulator through ninjaflight. This can be done like this:
+
+	git clone https://github.com/mkschreder/ninjaflight.git
+	cd ninjaflight && git checkout devel
+	make sitl-start
+
+This will build ninjaflight as a shared library (suitable for sitl), then
+checkout and build ninjasitl, then try to download pak0 from the internet (it
+is a relatively large file ~500Mb) and then start the simulator.
+
+About
+-----
+
 The simulator provides realistic sensor inputs to the flight controller and
 expects to be given outputs in the form of pwm signal. Other things such as
 telemetry and osd support are on the plan list and they will be using already
