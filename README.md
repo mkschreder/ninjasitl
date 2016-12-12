@@ -33,6 +33,11 @@ This will build ninjaflight as a shared library (suitable for sitl), then
 checkout and build ninjasitl, then try to download pak0 from the internet (it
 is a relatively large file ~500Mb) and then start the simulator.
 
+Documentation
+-------------
+
+Code documentation is at https://mkschreder.github.io/ninjasitl
+
 About
 -----
 
