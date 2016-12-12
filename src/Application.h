@@ -45,7 +45,7 @@ enum {
 
 class Application : public IEventReceiver{
 public:
-	Application(SoundSystem *snd);
+	Application();
 	~Application();
 	
 	void CreateStartScene();

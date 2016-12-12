@@ -201,10 +201,8 @@ void Application::_dynamicsTickCallback(btDynamicsWorld *world, btScalar timeSte
 }
  
 static int paused = 0; 
-Application::Application(SoundSystem *snd)
-//	sock(true){
-{
-	_snd = snd;
+Application::Application(){
+	_snd = new SoundSystem();
 	mRCThrottle = 0; 
 	mRCPitch = 0.5; 
 	mRCYaw = 0.5; 
@@ -427,14 +425,15 @@ int Application::initSITL(){
 }
 
 Application::~Application(){
+	// TODO: double check that we delete everything..
 	ClearObjects();
 	delete World;
 	delete Solver;
 	delete Dispatcher;
 	delete BroadPhase;
 	delete CollisionConfiguration;
-
 	_dev->drop();
+	delete _snd;
 }
 
 irr::video::IVideoDriver *Application::getVideoDriver(){
@@ -528,9 +527,9 @@ void Application::handleInputJoystick(double dt){
 void Application::handleInputKeyboard(double dt){
 	// Throttle
 	if(_key_down[KEY_KEY_W]){
-		mRCThrottle += dt * 0.6; 	
+		mRCThrottle += dt * 0.4; 	
 	} else if(_key_down[KEY_KEY_S]){
-		mRCThrottle -= dt * 0.6; 
+		mRCThrottle -= dt * 0.4; 
 	} else {
 		
 	}
@@ -569,15 +568,15 @@ void Application::handleInputKeyboard(double dt){
 	}	
 
 	if(_key_down[KEY_KEY_I]){
-		mRCAux1 += dt * 0.2; 	
+		mRCAux1 += dt * 0.3; 	
 	} else if(_key_down[KEY_KEY_K]){
-		mRCAux1 -= dt * 0.2; 
+		mRCAux1 -= dt * 0.3; 
 	} 
 
-	if(_key_down[KEY_KEY_J]){
-		mRCAux2 += dt * 0.2; 	
+	if(_key_down[KEY_KEY_O]){
+		mRCAux2 += dt * 0.3; 	
 	} else if(_key_down[KEY_KEY_L]){
-		mRCAux2 -= dt * 0.2; 
+		mRCAux2 -= dt * 0.3; 
 	} 
 }
 
@@ -841,13 +840,22 @@ void Application::run(){
 	// draw sticks
 	_drv->draw2DRectangle(SColor(100, 100, 100, 100), core::rect<s32>(10, screen.Height - 50, 50, screen.Height - 10));
 	_drv->draw2DRectangle(SColor(100, 100, 100, 100), core::rect<s32>(60, screen.Height - 50, 100, screen.Height - 10));
+	// cross lines
 	_drv->draw2DLine(core::position2d<s32>(10, screen.Height - 30), core::position2d<s32>(50, screen.Height - 30), SColor(100, 255,255,255));
 	_drv->draw2DLine(core::position2d<s32>(30, screen.Height - 50), core::position2d<s32>(30, screen.Height - 10), SColor(100, 255,255,255));
 	_drv->draw2DLine(core::position2d<s32>(60, screen.Height - 30), core::position2d<s32>(100, screen.Height - 30), SColor(100, 255,255,255));
 	_drv->draw2DLine(core::position2d<s32>(80, screen.Height - 50), core::position2d<s32>(80, screen.Height - 10), SColor(100, 255,255,255));
-
+	
+	// sticks themselves
 	_drv->draw2DPolygon(core::position2d<s32>(10 + 40 * mRCYaw, screen.Height - 10 - 40 * mRCThrottle), 5, SColor(100, 100, 0, 0), 20);
 	_drv->draw2DPolygon(core::position2d<s32>(60 + 40 * mRCRoll, screen.Height - 10 - 40 * mRCPitch), 5, SColor(100, 100, 0, 0), 20);
+
+	// aux channels
+	_drv->draw2DLine(core::position2d<s32>(110, screen.Height - 50), core::position2d<s32>(110, screen.Height - 10), SColor(100, 255,255,255));
+	_drv->draw2DLine(core::position2d<s32>(125, screen.Height - 50), core::position2d<s32>(125, screen.Height - 10), SColor(100, 255,255,255));
+	_drv->draw2DPolygon(core::position2d<s32>(110, screen.Height - 10 - 40 * mRCAux1), 5, SColor(110, 100, 0, 0), 20);
+	_drv->draw2DPolygon(core::position2d<s32>(125, screen.Height - 10 - 40 * mRCAux2), 5, SColor(100, 100, 0, 0), 20);
+
 
 	gui::IGUIFont* font = _dev->getGUIEnvironment()->getBuiltInFont();
 

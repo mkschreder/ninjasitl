@@ -17,11 +17,15 @@
 
 
 #include "Application.h"
+#include "Sound.h"
 #include "time.h"
 #include <unistd.h>
 #include <signal.h>
 
 static Application *_app;
+
+// NOTE: if this is not static then it will mess up the global shutdown variable and pulseaudio will segfault. ^^
+static sig_atomic_t shutdown = false;
 
 // Event receiver
 class EventReceiverClass : public IEventReceiver  {
@@ -33,13 +37,10 @@ public:
 	}
 };
 
-sig_atomic_t shutdown = false;
 void sigint(int arg){
 	shutdown = true;
 }
 int main(int argc, char **argv) {
-	SoundSystem *snd = new SoundSystem();
-
 	int c; 
 	const char *map = "q3dmp23.bsp"; 
 	const char *replay_file = NULL; 
@@ -57,7 +58,7 @@ int main(int argc, char **argv) {
 		}
 	}
 
-	_app = new Application(snd);
+	_app = new Application();
 
 	_app->loadMap(map); 
 
