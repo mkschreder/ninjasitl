@@ -1116,7 +1116,7 @@ void Application::updateNetwork(double dt){
 		_aircraft->setOutput(c, (sitl->read_pwm(c) - 1000) / 1000.0f); 
 	}
 
-	//glm::vec3 pos = _aircraft->getPosition(); 
+	glm::vec3 pos = _aircraft->getPosition(); 
 	//glm::quat rot = _aircraft->getRotation(); 
 	glm::vec3 accel = _aircraft->getAccel(); 
 	//glm::ivec3 loc = _aircraft->getLocation(); 
@@ -1128,6 +1128,12 @@ void Application::updateNetwork(double dt){
 	sitl->write_gyro(-gyro.z, gyro.x, -gyro.y);
 	//sitl->write_accel(accel.z, accel.x, -accel.y);
 	sitl->write_accel(accel.z, -accel.x, accel.y);
+
+	// calculate pressure using the barometric formula based on current altitude
+	float height = pos.y;
+	uint32_t pressure = 101325 * powf(288.15 / (288.15 + (-0.0065 * height)), (9.80665 * 0.0289644) / (8.3144598 * -0.0065));
+	sitl->write_pressure(pressure);
+	sitl->write_temperature(25);
 
 	//state.pos[0] = pos.z; state.pos[1] = pos.x; state.pos[2] = -pos.y; 
 	//state.loc[0] = loc.z; state.loc[1] = loc.x; state.loc[2] = loc.y; 

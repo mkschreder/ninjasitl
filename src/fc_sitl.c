@@ -26,24 +26,30 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <dlfcn.h>
+
+#include "system_calls.h"
 #include "fc_sitl.h"
 
+#include <unistd.h>
+#include <time.h>
+
+//char _flash[SITL_EEPROM_PAGE_SIZE * SITL_EEPROM_NUM_PAGES] = {0};
 /**
  * Loads a flight controller shared library and returns interface to the flight controller.
  */
-struct fc_sitl_server_interface *fc_sitl_create_instance(const char *dll, struct fc_sitl_client_interface *client){
+struct fc_sitl_server_interface *fc_sitl_create_instance(const char *dll, const struct system_calls *system){
 	void *dl = dlopen(dll, RTLD_LAZY|RTLD_LOCAL);
 	if(dl == NULL){
 		printf("could not load shared library: %s\n", dlerror());
 		return NULL;
 	}
 	// get pointer to the creation method and create a new aircraft instance
-	struct fc_sitl_server_interface *(*create)(struct fc_sitl_client_interface *) = dlsym(dl, "fc_sitl_create_aircraft");
+	struct fc_sitl_server_interface *(*create)(const struct system_calls *) = dlsym(dl, "fc_sitl_create_aircraft");
 	if(create == NULL){
 		printf("library is not a sitl module: %s\n", dlerror());
 		return NULL;
 	}
-	struct fc_sitl_server_interface *server = create(client);
+	struct fc_sitl_server_interface *server = create(system);
 	return server;
 }
 
