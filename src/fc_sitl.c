@@ -37,20 +37,19 @@
 /**
  * Loads a flight controller shared library and returns interface to the flight controller.
  */
-struct fc_sitl_server_interface *fc_sitl_create_instance(const char *dll, const struct system_calls *system){
+fc_handle_t fc_sitl_create_instance(const char *dll, const struct system_calls *system){
 	void *dl = dlopen(dll, RTLD_LAZY|RTLD_LOCAL);
 	if(dl == NULL){
 		printf("could not load shared library: %s\n", dlerror());
 		return NULL;
 	}
 	// get pointer to the creation method and create a new aircraft instance
-	struct fc_sitl_server_interface *(*create)(const struct system_calls *) = dlsym(dl, "fc_sitl_create_aircraft");
+	fc_handle_t (*create)(const struct system_calls *) = dlsym(dl, "fc_sitl_create_aircraft");
 	if(create == NULL){
 		printf("library is not a sitl module: %s\n", dlerror());
 		return NULL;
 	}
-	struct fc_sitl_server_interface *server = create(system);
-	return server;
+	return create(system);
 }
 
 /** @} */

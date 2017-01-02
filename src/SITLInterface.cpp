@@ -107,7 +107,7 @@ SITLInterface* SITLInterface::_load_sitl(const char *dlname){
 
 	memcpy(&self->system, &calls, sizeof(calls));
 
-	struct fc_sitl_server_interface *s = fc_sitl_create_instance(dlname, &self->system);
+	void *s = fc_sitl_create_instance(dlname, &self->system);
 	if(!s) {
 		delete self;
 		return NULL;

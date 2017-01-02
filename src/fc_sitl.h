@@ -42,7 +42,9 @@ extern "C" {
 #endif
 
 struct system_calls;
-struct fc_sitl_server_interface *fc_sitl_create_instance(const char *dll, const struct system_calls *system);
+typedef void* fc_handle_t;
+
+fc_handle_t fc_sitl_create_instance(const char *dll, const struct system_calls *system);
 
 #ifdef __cplusplus
 }
