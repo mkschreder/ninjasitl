@@ -32,13 +32,21 @@ typedef int32_t sys_micros_t;
  */
 #define SYSTEM_GYRO_RANGE 2000
 /**
- * standard value for accelerometer readings that represents 1G. Drivers should use this value to scale accelerometer readings into this range.
+ * Specifies how many g is full range of accelerometer
  */
-#define SYSTEM_ACC_1G 1000
+#define SYSTEM_ACCEL_RANGE 2
+
+#define SYSTEM_ACCEL_1G (0x7fff / SYSTEM_ACCEL_RANGE)
+
 /**
  * Helper macro for multiplier to convert gyro reading into deg/s
  */
 #define SYSTEM_GYRO_SCALE ((float)SYSTEM_GYRO_RANGE / (int16_t)0x7fff)
+
+/**
+ * Helper macro that converts raw accel reading into m/s2
+ */
+#define SYSTEM_ACCEL_SCALE (((float)SYSTEM_ACCEL_RANGE * 9.82f) / (int16_t)0x7fff)
 
 #if 0
 typedef enum {
@@ -190,6 +198,11 @@ struct system_calls_pwm {
  */
 struct system_calls_imu {
 	/**
+	 * This function should sleep on the gyro interrupt. If this functionality
+	 * is not supported by the system the function should return -1.
+	 */
+	int (*gyro_sync)(const struct system_calls_imu *self);
+	/**
 	 * Reads gyro rotational rate as a 16 bit integer. Full range (+-2^15) is
 	 * expected to equal SYSTEM_GYRO_PRECISION degrees per second.
 	 *
@@ -331,9 +344,10 @@ struct system_calls {
 #define sys_beeper_on(sys) sys->beeper.on(&(sys)->beeper, true)
 #define sys_beeper_off(sys) sys->beeper.on(&(sys)->beeper, false)
 
-#define sys_millis(sys) (sys->time.micros(&(sys)->time) / 1000)
-#define sys_micros(sys) (sys->time.micros(&(sys)->time))
+#define sys_millis(sys) ((sys)->time.micros(&(sys)->time) / 1000)
+#define sys_micros(sys) ((sys)->time.micros(&(sys)->time))
 
+#define sys_gyro_sync(sys) ((sys)->imu.gyro_sync(&(sys)->imu))
 #define sys_gyro_read(sys, data) (sys->imu.read_gyro(&(sys)->imu, data))
 #define sys_acc_read(sys, data) (sys->imu.read_acc(&(sys)->imu, data))
 #define sys_read_pressure(sys, data) (sys->imu.read_pressure(&(sys)->imu, data))

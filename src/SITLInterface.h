@@ -45,6 +45,9 @@ protected:
 	static void _write_servo(const struct system_calls_pwm *pwm, uint8_t chan, uint16_t value);
 	static uint16_t _read_pwm(const struct system_calls_pwm *pwm, uint8_t chan);
 	static uint16_t _read_ppm(const struct system_calls_pwm *pwm, uint8_t chan);
+	static int _gyro_sync(const struct system_calls_imu *imu);
+
+	static int32_t _micros(const struct system_calls_time *time);
 	static int _read_gyro(const struct system_calls_imu *imu, int16_t output[3]);
 	static int _read_accel(const struct system_calls_imu *imu, int16_t output[3]);
 	static int _read_mag(const struct system_calls_imu *imu, int16_t output[3]);
@@ -89,4 +92,5 @@ private:
 	int eeprom_fd;
 	int dataflash_fd;
 	struct system_calls system;
+	struct timespec start_ts;
 };

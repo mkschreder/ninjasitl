@@ -66,16 +66,7 @@ int usleep(uint32_t us){
 #endif
 
 #include <string.h>
-static int32_t _micros(const struct system_calls_time *time){
-	(void)time;
-	struct timespec ts;
-	static struct timespec start_ts = {0, 0};
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	if(start_ts.tv_sec == 0) memcpy(&start_ts, &ts, sizeof(start_ts));
-	int32_t t = (ts.tv_sec - start_ts.tv_sec) * 1000000 + ts.tv_nsec / 1000;
-	//printf("read time: %d\n", t);
-	return t;
-}
+
 
 SITLInterface* SITLInterface::_load_sitl(const char *dlname){
 	SITLInterface *self = new SITLInterface();
@@ -90,6 +81,7 @@ SITLInterface* SITLInterface::_load_sitl(const char *dlname){
 	calls.pwm.write_servo = _write_servo;
 	calls.pwm.read_ppm = _read_ppm;
 	calls.pwm.read_pwm = _read_pwm;
+	calls.imu.gyro_sync = _gyro_sync;
 	calls.imu.read_gyro = _read_gyro;
 	calls.imu.read_acc = _read_accel;
 	calls.imu.read_pressure = _read_pressure;
@@ -202,6 +194,23 @@ uint16_t SITLInterface::_read_ppm(const struct system_calls_pwm *pwm, uint8_t ch
 	return _read_pwm(pwm, chan);
 }
 
+int32_t SITLInterface::_micros(const struct system_calls_time *time){
+	const struct system_calls *sys = container_of(time, &scall_t::time);
+	SITLInterface *s = (SITLInterface*)container_of(sys, &SITLInterface::system);
+	pthread_mutex_lock(&s->_lock);
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	if(s->start_ts.tv_sec == 0) memcpy(&s->start_ts, &ts, sizeof(start_ts));
+	int32_t t = (ts.tv_sec - s->start_ts.tv_sec) * 1000000 + ts.tv_nsec / 1000;
+	pthread_mutex_unlock(&s->_lock);
+	//printf("read time: %d\n", t);
+	return t;
+}
+int SITLInterface::_gyro_sync(const struct system_calls_imu *imu){
+	// we do not support gyro sync so we return -1
+	return -1;
+}
+
 /**
  * Used by flight controller to read latest gyro values
  */
@@ -244,9 +253,9 @@ int SITLInterface::_read_accel(const struct system_calls_imu *imu, int16_t outpu
 	pthread_mutex_unlock(&s->_lock);
 
 	// convert to integer values to be used by fc
-	output[0] = (accel[0] / 9.82f) * SYSTEM_ACC_1G;
-	output[1] = (accel[1] / 9.82f) * SYSTEM_ACC_1G;
-	output[2] = (accel[2] / 9.82f) * SYSTEM_ACC_1G;
+	output[0] = (accel[0] / 9.82f) * SYSTEM_ACCEL_1G;
+	output[1] = (accel[1] / 9.82f) * SYSTEM_ACCEL_1G;
+	output[2] = (accel[2] / 9.82f) * SYSTEM_ACCEL_1G;
 
 	return 0;
 }
@@ -315,6 +324,7 @@ int SITLInterface::_eeprom_read(const struct system_calls_bdev *eeprom, void *ds
 	const struct system_calls *sys = container_of(eeprom, &scall_t::eeprom);
 	SITLInterface *s = (SITLInterface*)container_of(sys, &SITLInterface::system);
 	printf("EEPROM read from %04x, size %lu\n", addr, size);
+	fflush(stdout);
 	/*if((addr + size) > sizeof(_flash)){
 		size = sizeof(_flash) - addr;
 	}*/
@@ -333,6 +343,7 @@ int SITLInterface::_eeprom_write(const struct system_calls_bdev *eeprom, uint16_
 int SITLInterface::_eeprom_erase_page(const struct system_calls_bdev *eeprom, uint16_t addr){
 	const struct system_calls *sys = container_of(eeprom, &scall_t::eeprom);
 	SITLInterface *s = (SITLInterface*)container_of(sys, &SITLInterface::system);
+	printf("EEPROM erase %08x\n", addr);
 	uint8_t page[SITL_EEPROM_PAGE_SIZE];
 	memset(page, 0xff, sizeof(page));
 	addr = (addr / SITL_EEPROM_PAGE_SIZE) * SITL_EEPROM_PAGE_SIZE;
@@ -345,6 +356,7 @@ int SITLInterface::_eeprom_erase_page(const struct system_calls_bdev *eeprom, ui
 
 void SITLInterface::_eeprom_get_info(const struct system_calls_bdev *self, struct system_bdev_info *info){
 	(void)self;
+	printf("EEPROM size %dx%d\n", SITL_EEPROM_PAGE_SIZE, SITL_EEPROM_NUM_PAGES);
 	info->page_size = SITL_EEPROM_PAGE_SIZE;
 	info->num_pages = SITL_EEPROM_NUM_PAGES;
 }
